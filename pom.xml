@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.jenkins-ci.plugins</groupId>
+    <artifactId>plugin</artifactId>
+    <version>4.40</version>
+    <relativePath />
+  </parent>
+
+  <groupId>com.cavisson.jenkins.plugins</groupId>
+  <artifactId>cavisson-jenkin-plugin</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>hpi</packaging>
+
+  <name>Cavisson Jenkins Tasks</name>
+  <url>http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>cavisson</id>
+      <name>Cavisson</name>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin.git</connection>
+    <developerConnection>scm:git:http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin.git</developerConnection>
+    <url>http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <jenkins.version>2.346.3</jenkins.version>
+    <java.level>8</java.level>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <!-- Credentials plugin: used generically (StandardCredentials/CredentialsProvider) to
+         optionally resolve an existing CavServiceConnection credential from cav-security-pipeline
+         via reflection, without a compile-time dependency on that plugin. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>credentials</artifactId>
+      <version>2.6.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>structs</artifactId>
+      <version>308.v852b473a2b8c</version>
+    </dependency>
+
+    <!-- Plain Credentials plugin: lets the Direct connection mode's API Token be selected
+         from an existing "Secret text" credential instead of typed inline. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>plain-credentials</artifactId>
+      <version>1.8</version>
+    </dependency>
+
+    <!-- Pipeline Step API: lets tasks in this plugin be called from Pipeline scripts with a
+         return value (e.g. cavissonRunTest(...) returning testStatus/reportUrl/runNo). -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-step-api</artifactId>
+      <version>625.vd896b_f445a_f8</version>
+    </dependency>
+
+    <!-- Small, dependency-free JSON reader/writer for the DashboardServer REST calls -->
+    <dependency>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
+      <version>20240303</version>
+    </dependency>
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <id>repo.jenkins-ci.org</id>
+      <url>https://repo.jenkins-ci.org/public/</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>repo.jenkins-ci.org</id>
+      <url>https://repo.jenkins-ci.org/public/</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+</project>

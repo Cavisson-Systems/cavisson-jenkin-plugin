@@ -1,0 +1,8 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Cavisson CI/CD task plugin for Jenkins. Adds Cavisson execution tasks as build steps and
+  Pipeline steps, starting with "Cavisson - Run Test" (triggers a Cavisson TestSuite or Load
+  Test scenario and waits for completion). Connection to the Cavisson DashboardServer is
+  configured directly on each task (base URL + API token), or by referencing an existing
+  Cavisson Service Connection credential if the cav-security-pipeline plugin is also installed.
+</div>
