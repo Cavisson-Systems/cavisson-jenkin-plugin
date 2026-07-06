@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A standalone Jenkins plugin (`cavisson-jenkin-plugin`, groupId `com.cavisson.jenkins.plugins`) that hosts Cavisson CI/CD execution tasks as both Freestyle build steps and Pipeline steps. It currently has one task, `CavissonRunTest` ("Cavisson - Run Test" / Pipeline step `cavissonRunTest`), which triggers a Cavisson TestSuite or Load Test scenario on a DashboardServer instance and polls until it finishes. It is a sibling of, but intentionally decoupled from, `cav-security-pipeline` (a separate Jenkins plugin at `prod-src/core/jenkins/cav-jenkins` that does SAST/SCA/DAST security scanning and owns its own `CavServiceConnection` credential type). This plugin's reference implementation is the Azure DevOps extension at `../cav-load-test-azure-devops-extension` (`task/index.js`) — treat that file as the source of truth when porting behavior, not its README/ARCHITECTURE.md, which describe older/aspirational designs. That repo evolves independently; `git pull` it and diff `task/index.js` periodically when debugging behavior mismatches, since server-side response shapes and polling logic have changed there before without notice here.
+A standalone Jenkins plugin (`cavisson-jenkin-plugin`, groupId `com.cavisson.jenkins.plugins`) that hosts Cavisson CI/CD execution tasks as both Freestyle build steps and Pipeline steps. It is a sibling of, but intentionally decoupled from, `cav-security-pipeline` (a separate Jenkins plugin at `prod-src/core/jenkins/cav-jenkins` that does SAST/SCA/DAST security scanning and owns its own `CavServiceConnection` credential type).
+
+Tasks so far:
+- `CavissonRunTest` ("Cavisson - Run Test" / Pipeline step `cavissonRunTest`) — triggers a Cavisson TestSuite or Load Test scenario on a DashboardServer instance and polls until it finishes. Reference implementation: the Azure DevOps extension at `../cav-load-test-azure-devops-extension` (`task/index.js`) — treat that file as the source of truth when porting behavior, not its README/ARCHITECTURE.md, which describe older/aspirational designs. That repo evolves independently; `git pull` it and diff `task/index.js` periodically when debugging behavior mismatches, since server-side response shapes and polling logic have changed there before without notice here.
+- `CreateTestSuite` ("Cavisson - Create Functional Test Suite" / Pipeline step `cavissonCreateTestSuite`) — calls the Scenario Service's single synchronous `createTestSuite` REST endpoint (no polling). Reference: the OpenAPI spec at `prod-src/web/scenarioservices/openapi-createTestSuite.yaml`.
 
 ## Commands
 
@@ -22,15 +26,16 @@ A standalone Jenkins plugin (`cavisson-jenkin-plugin`, groupId `com.cavisson.jen
 com.cavisson.jenkins
 ├── http.HttpUtil                          — shared HTTP client (postJson/getJson, trust-all SSL), reused by every task
 ├── connection.{CavissonConnection, CavissonConnectionResolver}  — shared connection resolution, reused by every task
-└── runtest.{CavissonRunTestExecutor, CavissonRunTestBuilder, CavissonRunTestStep}  — one task
+├── runtest.{CavissonRunTestExecutor, CavissonRunTestBuilder, CavissonRunTestStep}  — polling task
+└── createtestsuite.{CreateTestSuiteExecutor, CreateTestSuiteBuilder, CreateTestSuiteStep}  — single-call task
 ```
 
 Each task follows the same 3-class pattern, split because a classic `Builder` (needed for Freestyle jobs) cannot return a Pipeline value, and a `Step` (needed for a Pipeline return value) cannot appear in the Freestyle "Add build step" list:
-- `<Task>Executor` — package-private, holds all the real logic (HTTP calls, polling, report handling). No Jenkins extension annotations.
+- `<Task>Executor` — package-private, holds all the real logic (HTTP calls, polling if needed, report handling). No Jenkins extension annotations.
 - `<Task>Builder extends Builder implements SimpleBuildStep` — Freestyle UI. Deliberately has **no `@Symbol`**, so it doesn't also register a Pipeline DSL function under the same name as the Step.
 - `<Task>Step extends Step`, with a `StepDescriptor.getFunctionName()` and a `SynchronousNonBlockingStepExecution<Map<String,Object>>` inner execution class — Pipeline function, returns a `Map` so scripts can do `def result = cavissonRunTest(...); echo result.testStatus`.
 
-Both `Builder` and `Step` hold identical fields/getters/setters/descriptors and just delegate to the shared `Executor`. To add a new task, copy this triplet into a new package (`com.cavisson.jenkins.<newtask>`) and reuse `http.HttpUtil` + `connection.CavissonConnectionResolver` unchanged. The ADO extension has two more tasks not yet ported here (`CavissonStartCodeCoverage`, `CavissonStopCodeCoverage`) that are natural next candidates.
+Both `Builder` and `Step` hold identical fields/getters/setters/descriptors and just delegate to the shared `Executor`. To add a new task, copy this triplet into a new package (`com.cavisson.jenkins.<newtask>`) and reuse `http.HttpUtil` + `connection.CavissonConnectionResolver` unchanged. `CreateTestSuite` is the simpler template to copy from if the new task is a single request/response call with no polling (it doesn't need `Run`/`FilePath`/`Launcher` in its `Executor` signature or `Step`'s `getRequiredContext()` at all — just `Run`, `TaskListener`, `EnvVars`). `CavissonRunTest` is the template for anything that polls and/or archives artifacts. The ADO extension has two more not-yet-ported tasks (`CavissonStartCodeCoverage`, `CavissonStopCodeCoverage`) that are natural next candidates.
 
 ### Connection model
 
@@ -50,6 +55,22 @@ Base path: `{baseUrl}/DashboardServer/v2/scenario/cicd`. All requests carry a `c
 
 **Deliberate behavior**: a completed test with `testStatus == "fail"` does **not** fail the Jenkins build/step — only `"error"` or an unrecognized status does. This matches the ADO extension exactly; don't "fix" it without checking with whoever owns this requirement.
 
+### Scenario Service API (used by CreateTestSuite)
+
+`POST {baseUrl}/DashboardServer/v2/scenario/data/createTestSuite` — always answers HTTP 200; the actual outcome is the `status` field (`"success"`/`"fail"`, unlike CavissonRunTest's `/startTest` this one is not misleading). `"fail"` here **does** abort the build (`CreateTestSuiteExecutor` throws `AbortException`) — unlike CavissonRunTest's test-verdict semantics, a failed test-suite-creation call is a real, actionable error, not a legitimate outcome to tolerate. `tags` is the only truly required field (comma-separated string in the Jenkins UI/Pipeline call, split into a JSON array before sending); everything else has server-side defaults documented in the OpenAPI spec. Full request/response schema: `prod-src/web/scenarioservices/openapi-createTestSuite.yaml`.
+
+### Result values as environment variables
+
+Every task publishes its result values as plain environment variables, visible to later steps in the *same* build/Pipeline run (in addition to the `Map` a Pipeline step call returns directly):
+- `CavissonRunTest` → `CAV_TSR_NUMBER`, `CAV_TSR_STATUS`, `CAV_TSR_REPORT_URL` ("TSR" = Test Suite Run).
+- `CreateTestSuite` → `CAV_NEW_TESTSUITE_NAME`.
+
+This is done via `com.cavisson.jenkins.env`: each `<Task>Executor` calls `CavissonEnvironmentPublisher.publish(run, Map<String,String>)` once it has its result. That attaches a small internal `CavissonEnvironmentAction` (an `InvisibleAction`) to the `Run`; a single global `@Extension CavissonEnvironmentContributor extends EnvironmentContributor` merges every such action's vars into `Run#getEnvironment(...)` whenever anything asks for the build's environment. **Do not use `hudson.model.EnvironmentContributingAction` for this** — its `buildEnvVars(AbstractBuild, EnvVars)` signature only fires for Freestyle builds; `WorkflowRun` (Pipeline) isn't an `AbstractBuild`, so Pipeline runs would silently never see the vars. `EnvironmentContributor` is the one extension point that's generic over `Run` and works for both. A new task just needs to build its own vars map and call `CavissonEnvironmentPublisher.publish(run, vars)` — no other wiring required.
+
+### Free-text input expansion
+
+Every free-text field (not a `f:select` dropdown or credential picker) is expanded against the build's environment variables via `EnvVars#expand(...)`, so a value like `https://${CAV_HOST}:4444` resolves normally. Each `<Task>Executor` already expands its own plain fields (`project`, `tags`, etc.) — `baseUrl` and `cavServiceConnectionId` are the two connection-related exceptions, expanded centrally inside `CavissonConnectionResolver.resolve(...)` (which now takes an `EnvVars` parameter) since both tasks share that call. `apiTokenCredentialId` and `connectionMode` are deliberately **not** expanded — they're pickers, not free text; there's no realistic use case for templating a credential ID or a fixed-choice mode string.
+
 ### Jelly form gotcha (cost two rounds of debugging in production)
 
 `f:radioBlock` elements sharing a `name` submit a **bundled JSON object** (`{"value": "direct", ...sibling fields}`) so Stapler can tell which block was active. That bundled shape does **not** bind to a plain `String` property — not via `@DataBoundConstructor`, and not via `@DataBoundSetter` either. Both were tried and both crashed real Freestyle job saves with `NoStaplerConstructorException` / `IllegalArgumentException`. The fix: use `<f:select>` for any mode/discriminator field (`connectionMode`, `testType`) with all dependent fields rendered flat/always-visible, not conditionally hidden via `radioBlock`. `doCheck*` methods still gate *requiredness* per mode via a `@QueryParameter String connectionMode` sibling parameter — only the visual conditional-hide is what was given up.
@@ -65,3 +86,7 @@ Because this class of bug only shows up on a real form **submit**, not on Jelly 
 - `junit:1150.v5c2848328b_60` plus a `<dependencyManagement>` override pinning `io.jenkins.plugins:font-awesome-api:6.1.1-1` — the `junit` plugin's own two transitive deps (`echarts-api`, `bootstrap5-api`) pull two different, conflicting `font-awesome-api` versions internally.
 
 If you bump any of these, re-run `mvn test` fully (not just compile) — the enforcer runs in an early phase and will fail loudly with the exact conflicting paths if something regresses.
+
+### Known test flakiness
+
+The `JenkinsRule#configRoundtrip`-based tests occasionally fail with `FailingHttpStatusCodeException: 404 Not Found` for a static JS resource (e.g. `autocomplete-debug.js`) — this is an HtmlUnit/test-harness timing flake related to the growing set of installed plugins' bundled UI resources (first seen after adding the `junit` plugin), not a real binding/functional bug. If a round-trip test fails, re-run just that class in isolation (`mvn test -Dtest=<ClassName>`) before assuming a regression — it has cleared on retry every time so far.

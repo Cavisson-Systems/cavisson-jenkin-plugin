@@ -1,4 +1,4 @@
-package com.cavisson.jenkins.runtest;
+package com.cavisson.jenkins.createtestsuite;
 
 import com.cavisson.jenkins.connection.CavissonConnection;
 import com.cavisson.jenkins.connection.CavissonConnectionResolver;
@@ -7,37 +7,34 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.model.AbstractProject;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.security.ACL;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
-import org.jenkinsci.plugins.workflow.steps.Step;
-import org.jenkinsci.plugins.workflow.steps.StepContext;
-import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
-import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * Pipeline equivalent of the ADO "CavissonRunTest" task, exposed as the {@code cavissonRunTest}
- * step. Unlike {@link CavissonRunTestBuilder} (used for Freestyle jobs), this returns the test
- * result ({@code testStatus}, {@code reportUrl}, ...) as a Map so Pipeline scripts can do:
- * {@code def result = cavissonRunTest(...); echo result.testStatus}.
+ * Freestyle/general build-step equivalent of the Scenario Service "Create Test Suite" API:
+ * creates a functional test suite from testcases matching the given tags. Deliberately has no
+ * {@code @Symbol}, so it does not also expose itself as a Pipeline DSL function -
+ * {@link CreateTestSuiteStep} owns the "cavissonCreateTestSuite" Pipeline step (with a return
+ * value), while this class covers Freestyle jobs.
  */
-public class CavissonRunTestStep extends Step {
-
-    private String testType = "TestSuite";
+public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
 
     private String connectionMode = "direct";
     private String baseUrl = "";
@@ -46,22 +43,14 @@ public class CavissonRunTestStep extends Step {
 
     private String project = "default";
     private String subProject = "default";
-    private String username = "Cavisson";
-    private String profile = "default";
-    private String testSuiteName = "";
-    private String scenarioName = "";
+    private String workspace = "admin";
+    private String profile = "system";
+    private String name = "";
+    private String tags = "";
+    private boolean automatedOnly = true;
 
     @DataBoundConstructor
-    public CavissonRunTestStep() {
-    }
-
-    public String getTestType() {
-        return testType;
-    }
-
-    @DataBoundSetter
-    public void setTestType(String testType) {
-        this.testType = "LoadTest".equalsIgnoreCase(testType) ? "LoadTest" : "TestSuite";
+    public CreateTestSuiteBuilder() {
     }
 
     public String getConnectionMode() {
@@ -118,13 +107,13 @@ public class CavissonRunTestStep extends Step {
         this.subProject = subProject;
     }
 
-    public String getUsername() {
-        return username;
+    public String getWorkspace() {
+        return workspace;
     }
 
     @DataBoundSetter
-    public void setUsername(String username) {
-        this.username = username;
+    public void setWorkspace(String workspace) {
+        this.workspace = workspace;
     }
 
     public String getProfile() {
@@ -136,82 +125,61 @@ public class CavissonRunTestStep extends Step {
         this.profile = profile;
     }
 
-    public String getTestSuiteName() {
-        return testSuiteName;
+    public String getName() {
+        return name;
     }
 
     @DataBoundSetter
-    public void setTestSuiteName(String testSuiteName) {
-        this.testSuiteName = testSuiteName;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public String getScenarioName() {
-        return scenarioName;
+    public String getTags() {
+        return tags;
     }
 
     @DataBoundSetter
-    public void setScenarioName(String scenarioName) {
-        this.scenarioName = scenarioName;
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public boolean isAutomatedOnly() {
+        return automatedOnly;
+    }
+
+    @DataBoundSetter
+    public void setAutomatedOnly(boolean automatedOnly) {
+        this.automatedOnly = automatedOnly;
     }
 
     @Override
-    public StepExecutionImpl start(StepContext context) {
-        return new StepExecutionImpl(this, context);
-    }
+    public void perform(@Nonnull Run<?, ?> run,
+                         @Nonnull FilePath workspaceDir,
+                         @Nonnull EnvVars env,
+                         @Nonnull Launcher launcher,
+                         @Nonnull TaskListener listener) throws InterruptedException, IOException {
 
-    private static final class StepExecutionImpl extends SynchronousNonBlockingStepExecution<Map<String, Object>> {
+        CavissonConnection connection = CavissonConnectionResolver.resolve(
+                run, env, connectionMode, baseUrl, apiTokenCredentialId, cavServiceConnectionId);
 
-        private static final long serialVersionUID = 1L;
+        Map<String, Object> result = CreateTestSuiteExecutor.run(run, env, listener,
+                connection, project, subProject, workspace, profile, name, tags, automatedOnly);
 
-        private final transient CavissonRunTestStep step;
-
-        StepExecutionImpl(CavissonRunTestStep step, StepContext context) {
-            super(context);
-            this.step = step;
-        }
-
-        @Override
-        protected Map<String, Object> run() throws Exception {
-            StepContext context = getContext();
-            Run<?, ?> run = context.get(Run.class);
-            FilePath workspace = context.get(FilePath.class);
-            Launcher launcher = context.get(Launcher.class);
-            TaskListener listener = context.get(TaskListener.class);
-            EnvVars env = context.get(EnvVars.class);
-
-            CavissonConnection connection = CavissonConnectionResolver.resolve(run, env, step.getConnectionMode(),
-                    step.getBaseUrl(), step.getApiTokenCredentialId(), step.getCavServiceConnectionId());
-
-            return CavissonRunTestExecutor.run(run, workspace, launcher, env, listener,
-                    connection, step.getTestType(), step.getProject(), step.getSubProject(),
-                    step.getUsername(), step.getProfile(), step.getTestSuiteName(), step.getScenarioName());
-        }
+        listener.getLogger().println("Test suite created: " + result.get("testsuite"));
     }
 
     @Extension
-    public static class DescriptorImpl extends StepDescriptor {
+    public static class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
         @Override
-        public String getFunctionName() {
-            return "cavissonRunTest";
+        public boolean isApplicable(Class<? extends AbstractProject> jobType) {
+            return true;
         }
 
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "Cavisson - Run Test";
-        }
-
-        @Override
-        public Set<Class<?>> getRequiredContext() {
-            return new HashSet<>(Arrays.asList(Run.class, FilePath.class, Launcher.class, TaskListener.class, EnvVars.class));
-        }
-
-        public ListBoxModel doFillTestTypeItems() {
-            ListBoxModel items = new ListBoxModel();
-            items.add("Test Suite", "TestSuite");
-            items.add("Load Test", "LoadTest");
-            return items;
+            return "Cavisson - Create Functional Test Suite";
         }
 
         public ListBoxModel doFillConnectionModeItems() {
@@ -256,30 +224,8 @@ public class CavissonRunTestStep extends Step {
             return FormValidation.ok();
         }
 
-        public FormValidation doCheckProject(@QueryParameter String value) {
-            return requireNonEmpty(value, "Project is required.");
-        }
-
-        public FormValidation doCheckSubProject(@QueryParameter String value) {
-            return requireNonEmpty(value, "Sub Project is required.");
-        }
-
-        public FormValidation doCheckUsername(@QueryParameter String value) {
-            return requireNonEmpty(value, "User Name is required.");
-        }
-
-        public FormValidation doCheckTestSuiteName(@QueryParameter String value, @QueryParameter String testType) {
-            if ("TestSuite".equals(testType)) {
-                return requireNonEmpty(value, "TestSuite Name is required when Test Type is Test Suite.");
-            }
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckScenarioName(@QueryParameter String value, @QueryParameter String testType) {
-            if ("LoadTest".equals(testType)) {
-                return requireNonEmpty(value, "Test Name is required when Test Type is Load Test.");
-            }
-            return FormValidation.ok();
+        public FormValidation doCheckTags(@QueryParameter String value) {
+            return requireNonEmpty(value, "At least one tag is required (comma-separated).");
         }
 
         private static FormValidation requireNonEmpty(String value, String message) {

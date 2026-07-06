@@ -161,7 +161,7 @@ public class CavissonRunTestBuilder extends Builder implements SimpleBuildStep {
                          @Nonnull TaskListener listener) throws InterruptedException, IOException {
 
         CavissonConnection connection = CavissonConnectionResolver.resolve(
-                run, connectionMode, baseUrl, apiTokenCredentialId, cavServiceConnectionId);
+                run, env, connectionMode, baseUrl, apiTokenCredentialId, cavServiceConnectionId);
 
         Map<String, Object> result = CavissonRunTestExecutor.run(run, workspace, launcher, env, listener,
                 connection, testType, project, subProject, username, profile, testSuiteName, scenarioName);

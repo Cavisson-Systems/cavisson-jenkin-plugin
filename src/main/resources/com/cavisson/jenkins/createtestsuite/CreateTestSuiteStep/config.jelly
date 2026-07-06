@@ -1,0 +1,40 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+
+  <f:entry title="${%Connection Mode}" field="connectionMode">
+    <f:select default="direct"/>
+  </f:entry>
+
+  <f:entry title="${%Base URL}" field="baseUrl">
+    <f:textbox/>
+  </f:entry>
+  <f:entry title="${%API Token}" field="apiTokenCredentialId">
+    <c:select/>
+  </f:entry>
+  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="${%Project}" field="project">
+    <f:textbox default="default"/>
+  </f:entry>
+  <f:entry title="${%Sub Project}" field="subProject">
+    <f:textbox default="default"/>
+  </f:entry>
+  <f:entry title="${%Tags}" field="tags">
+    <f:textbox default=""/>
+  </f:entry>
+  <f:entry title="${%Test Suite Name}" field="name">
+    <f:textbox/>
+  </f:entry>
+  <f:entry title="${%Workspace}" field="workspace">
+    <f:textbox default="admin"/>
+  </f:entry>
+  <f:entry title="${%Profile}" field="profile">
+    <f:textbox default="system"/>
+  </f:entry>
+  <f:entry title="${%Automated Only}" field="automatedOnly">
+    <f:checkbox default="true"/>
+  </f:entry>
+
+</j:jelly>
