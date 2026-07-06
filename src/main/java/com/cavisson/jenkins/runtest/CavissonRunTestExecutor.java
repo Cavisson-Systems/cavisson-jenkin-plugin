@@ -1,6 +1,7 @@
 package com.cavisson.jenkins.runtest;
 
 import com.cavisson.jenkins.connection.CavissonConnection;
+import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -177,6 +178,12 @@ final class CavissonRunTestExecutor {
                 listener.getLogger().println("Report download skipped: " + reportError.getMessage());
             }
         }
+
+        Map<String, String> envVars = new LinkedHashMap<>();
+        envVars.put("CAV_TSR_NUMBER", String.valueOf(runNo));
+        envVars.put("CAV_TSR_STATUS", finalStatus == null ? "" : finalStatus);
+        envVars.put("CAV_TSR_REPORT_URL", reportUrl == null ? "" : reportUrl);
+        CavissonEnvironmentPublisher.publish(run, envVars);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("testStatus", finalStatus);

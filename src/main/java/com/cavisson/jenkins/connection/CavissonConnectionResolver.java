@@ -3,6 +3,7 @@ package com.cavisson.jenkins.connection;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 import hudson.AbortException;
+import hudson.EnvVars;
 import hudson.model.Run;
 import hudson.util.Secret;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
@@ -16,6 +17,11 @@ import java.lang.reflect.Method;
  * (separate, optional) cav-security-pipeline plugin. The second mode uses reflection so this
  * plugin has zero compile-time or Jenkins plugin-manifest dependency on cav-security-pipeline:
  * it works if that plugin happens to be installed, and fails with a clear message if it is not.
+ *
+ * <p>Free-text fields (base URL, service connection ID) are expanded against the build's
+ * environment variables (e.g. a value of {@code ${CAV_BASE_URL}} is resolved) - everything except
+ * pickers/dropdowns (connection mode, credential ID) supports this, matching every other task
+ * input in this plugin.
  */
 public final class CavissonConnectionResolver {
 
@@ -25,15 +31,23 @@ public final class CavissonConnectionResolver {
     }
 
     public static CavissonConnection resolve(Run<?, ?> run,
+                                              EnvVars env,
                                               String connectionMode,
                                               String baseUrl,
                                               String apiTokenCredentialId,
                                               String cavServiceConnectionId) throws AbortException {
 
+        String expandedBaseUrl = expand(env, baseUrl);
+        String expandedServiceConnectionId = expand(env, cavServiceConnectionId);
+
         if ("serviceConnection".equals(connectionMode)) {
-            return resolveViaServiceConnection(run, cavServiceConnectionId);
+            return resolveViaServiceConnection(run, expandedServiceConnectionId);
         }
-        return resolveDirect(run, baseUrl, apiTokenCredentialId);
+        return resolveDirect(run, expandedBaseUrl, apiTokenCredentialId);
+    }
+
+    private static String expand(EnvVars env, String value) {
+        return value == null ? null : env.expand(value);
     }
 
     private static CavissonConnection resolveDirect(Run<?, ?> run, String baseUrl, String apiTokenCredentialId) throws AbortException {
