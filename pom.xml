@@ -75,7 +75,14 @@
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
       <artifactId>workflow-step-api</artifactId>
-      <version>625.vd896b_f445a_f8</version>
+      <version>639.v6eca_cd8c04a_a_</version>
+    </dependency>
+
+    <!-- JUnit plugin: publishes downloaded Cavisson JUnit reports to the build's Test Results. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>junit</artifactId>
+      <version>1150.v5c2848328b_60</version>
     </dependency>
 
     <!-- Small, dependency-free JSON reader/writer for the DashboardServer REST calls -->
@@ -85,6 +92,18 @@
       <version>20240303</version>
     </dependency>
   </dependencies>
+
+  <!-- Pin transitive plugin versions that conflict within the junit plugin's own dependency
+       graph (echarts-api and bootstrap5-api each pull a different font-awesome-api release). -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.jenkins.plugins</groupId>
+        <artifactId>font-awesome-api</artifactId>
+        <version>6.1.1-1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <repositories>
     <repository>

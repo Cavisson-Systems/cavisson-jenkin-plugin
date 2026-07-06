@@ -9,6 +9,7 @@ import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.ArtifactArchiver;
+import hudson.tasks.junit.JUnitResultArchiver;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -18,6 +19,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Java port of the Azure DevOps "CavissonRunTest" task (task/index.js): triggers a Cavisson
@@ -106,6 +109,10 @@ final class CavissonRunTestExecutor {
         // incorrectly against the actual run.
         String effectiveMode = resolveEffectiveMode(startJson, mode);
 
+        // "functional"/"performance" as classified by the server for this run; drives whether
+        // a JUnit report should be published, same as the ADO extension's executionType.
+        String executionType = startJson.optString("testType", "").trim().toLowerCase(Locale.ROOT);
+
         listener.getLogger().println("Test triggered successfully with run number " + runNo);
         listener.getLogger().println("Polling for test completion...");
 
@@ -131,6 +138,20 @@ final class CavissonRunTestExecutor {
                 statusMessage = firstNonBlank(statusJson.optString("error", ""),
                         firstNonBlank(statusJson.optString("msg", ""), statusJson.optString("message", "No message provided")));
                 reportUrl = statusJson.optString("reportUrl", "");
+                String htmlReportUrl = statusJson.optString("HtmlReport", "");
+
+                // Auto-publish JUnit results for TestSuite/functional runs, regardless of the
+                // eventual pass/fail/error outcome - matches the ADO extension's behavior.
+                boolean shouldPublishJUnit = "T".equals(effectiveMode) || "functional".equals(executionType);
+                if (shouldPublishJUnit) {
+                    long reportRunNo = firstPositive(extractTsrFromUrl(reportUrl), extractTsrFromUrl(htmlReportUrl), runNo);
+                    try {
+                        downloadAndPublishJUnitReport(run, workspace, launcher, listener, apiBase, headers,
+                                allowInsecureSSL, reportRunNo, effectiveMode, executionType);
+                    } catch (IOException junitError) {
+                        listener.getLogger().println("Could not download/publish JUnit report: " + junitError.getMessage());
+                    }
+                }
 
                 if (isTerminalStatus(finalStatus)) {
                     listener.getLogger().println("Test has completed with status '" + finalStatus + "'");
@@ -191,6 +212,58 @@ final class CavissonRunTestExecutor {
         archiver.perform(run, workspace, run.getEnvironment(listener), launcher, listener);
 
         listener.getLogger().println("HTML report downloaded and published to artifacts: " + reportFile.getName());
+    }
+
+    private static void downloadAndPublishJUnitReport(Run<?, ?> run,
+                                                       FilePath workspace,
+                                                       Launcher launcher,
+                                                       TaskListener listener,
+                                                       String apiBase,
+                                                       Map<String, String> headers,
+                                                       boolean allowInsecureSSL,
+                                                       long reportRunNo,
+                                                       String effectiveMode,
+                                                       String executionType) throws IOException, InterruptedException {
+
+        JSONObject junitRequest = new JSONObject();
+        junitRequest.put("testRun", reportRunNo);
+        junitRequest.put("testmode", effectiveMode);
+        junitRequest.put("type", "T".equals(effectiveMode) ? "testsuite" : "test");
+        junitRequest.put("executionType", executionType);
+        junitRequest.put("replaceTR", "false");
+
+        HttpUtil.HttpResult junitResponse = HttpUtil.postJson(apiBase + "/getJunitReport", junitRequest.toString(), headers, allowInsecureSSL);
+
+        FilePath resultsDir = workspace.child("cavisson-test-results");
+        resultsDir.mkdirs();
+
+        FilePath junitFile = resultsDir.child("junit-" + reportRunNo + ".xml");
+        junitFile.write(junitResponse.body, "UTF-8");
+
+        listener.getLogger().println("JUnit report downloaded: " + junitFile.getRemote());
+
+        JUnitResultArchiver archiver = new JUnitResultArchiver("cavisson-test-results/" + junitFile.getName());
+        archiver.setAllowEmptyResults(true);
+        archiver.perform(run, workspace, launcher, listener);
+
+        listener.getLogger().println("JUnit results published to build Test Results.");
+    }
+
+    private static long extractTsrFromUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return 0;
+        }
+        Matcher matcher = Pattern.compile("[?&]tsr=(\\d+)", Pattern.CASE_INSENSITIVE).matcher(url);
+        return matcher.find() ? Long.parseLong(matcher.group(1)) : 0;
+    }
+
+    private static long firstPositive(long... values) {
+        for (long value : values) {
+            if (value > 0) {
+                return value;
+            }
+        }
+        return 0;
     }
 
     /**
