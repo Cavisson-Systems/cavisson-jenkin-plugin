@@ -9,6 +9,7 @@ A standalone Jenkins plugin (`cavisson-jenkin-plugin`, groupId `com.cavisson.jen
 Tasks so far:
 - `CavissonRunTest` ("Cavisson - Run Test" / Pipeline step `cavissonRunTest`) — triggers a Cavisson TestSuite or Load Test scenario on a DashboardServer instance and polls until it finishes. Reference implementation: the Azure DevOps extension at `../cav-load-test-azure-devops-extension` (`task/index.js`) — treat that file as the source of truth when porting behavior, not its README/ARCHITECTURE.md, which describe older/aspirational designs. That repo evolves independently; `git pull` it and diff `task/index.js` periodically when debugging behavior mismatches, since server-side response shapes and polling logic have changed there before without notice here.
 - `CreateTestSuite` ("Cavisson - Create Functional Test Suite" / Pipeline step `cavissonCreateTestSuite`) — calls the Scenario Service's single synchronous `createTestSuite` REST endpoint (no polling). Reference: the OpenAPI spec at `prod-src/web/scenarioservices/openapi-createTestSuite.yaml`.
+- `AnalyseTestFailure` ("Cavisson - Analyse Test Failure" / Pipeline step `cavAnalyseTestFailure` — note: no `cavisson` prefix, unlike the other two, by explicit request) — triggers the "Cav Codefix Agent" LLM failure-analysis flow for either one explicit Test Run (`trNumber`) or every failing testcase inside a Test Suite Run (`tsrNumber`), the latter with configurable concurrency (default 1, max 8). Reference: `analyze-failure-api-reference.md` (given as a one-off PDF, not checked into any repo — re-request it from whoever owns the Cav Codefix Agent service if the API changes).
 
 ## Commands
 
@@ -27,7 +28,9 @@ com.cavisson.jenkins
 ├── http.HttpUtil                          — shared HTTP client (postJson/getJson, trust-all SSL), reused by every task
 ├── connection.{CavissonConnection, CavissonConnectionResolver}  — shared connection resolution, reused by every task
 ├── runtest.{CavissonRunTestExecutor, CavissonRunTestBuilder, CavissonRunTestStep}  — polling task
-└── createtestsuite.{CreateTestSuiteExecutor, CreateTestSuiteBuilder, CreateTestSuiteStep}  — single-call task
+├── createtestsuite.{CreateTestSuiteExecutor, CreateTestSuiteBuilder, CreateTestSuiteStep}  — single-call task
+└── analysefailure.{AnalyseTestFailureExecutor, AnalyseTestFailureBuilder, AnalyseTestFailureStep,
+                     AnalysisTarget, JunitFailureParser}  — fan-out task (N concurrent 3-call flows)
 ```
 
 Each task follows the same 3-class pattern, split because a classic `Builder` (needed for Freestyle jobs) cannot return a Pipeline value, and a `Step` (needed for a Pipeline return value) cannot appear in the Freestyle "Add build step" list:
@@ -59,11 +62,55 @@ Base path: `{baseUrl}/DashboardServer/v2/scenario/cicd`. All requests carry a `c
 
 `POST {baseUrl}/DashboardServer/v2/scenario/data/createTestSuite` — always answers HTTP 200; the actual outcome is the `status` field (`"success"`/`"fail"`, unlike CavissonRunTest's `/startTest` this one is not misleading). `"fail"` here **does** abort the build (`CreateTestSuiteExecutor` throws `AbortException`) — unlike CavissonRunTest's test-verdict semantics, a failed test-suite-creation call is a real, actionable error, not a legitimate outcome to tolerate. `tags` is the only truly required field (comma-separated string in the Jenkins UI/Pipeline call, split into a JSON array before sending); everything else has server-side defaults documented in the OpenAPI spec. Full request/response schema: `prod-src/web/scenarioservices/openapi-createTestSuite.yaml`.
 
+### Cav Codefix Agent API (used by AnalyseTestFailure)
+
+Base path: `{baseUrl}/tomcat/master/DashboardServer/v2/web/cavOpenhands` — note this is a
+**different** base path from the other two tasks' `/DashboardServer/v2/scenario/...`; same
+`cavToken` header convention regardless. Three calls per test run analysed:
+- `POST /prepareAnalysisContext` — body `{scenario, projectName, subProjectName, userName,
+  workProfileName, trNumber}`. Response `{conversationId, sessionKey, conversationUrl, promptText,
+  gitconfig, error}`. Non-null/non-empty `error` → that target's analysis is recorded as `error`,
+  Call 2/3 are skipped for it (`AnalyseTestFailureExecutor.errorMessage`).
+- `POST /runAnalysisAsCli` — body = the 6 original input fields merged into the *full* Call 1
+  response object (including `gitconfig` verbatim — never add `token`/`apiKey` fields, the server
+  re-fetches secrets itself). Same response shape/error handling as Call 1.
+- `GET /shellStatus?conversationId=...` — poll every **30s**, up to **20 attempts (10 min)** —
+  different cadence from `CavissonRunTest`'s 60s test-status poll, per the reference doc.
+  `running`/`unknown` (record not committed to MongoDB yet) → keep polling; `completed` → success;
+  `failed` → record its `error` field; no terminal state after 20 attempts → recorded as `timeout`.
+
+**`tsrNumber` vs `trNumber` input**: exactly one must be given (validated in the Executor, not
+just at the form level, since Pipeline calls skip form validation). With a bare `trNumber`,
+`scenario`/`project`/`subProject`/`userName`/`workProfileName` must be supplied explicitly as
+task inputs. With `tsrNumber`, none of those are needed — `JunitFailureParser` derives them per
+failing testcase straight from that TSR's JUnit report: testsuite-level `started_by` →
+`userName`, `workspace` (e.g. `"admin/system"`) second segment → `workProfileName`; each failing
+`<testcase>`'s own `tr_number` property and its `name` attribute (e.g. `"AI/demo/testcaseName"`)
+→ `trNumber` and `project`/`subProject`/`scenario`. The JUnit report itself is reused from
+`workspace/cavisson-test-results/junit-<tsrNumber>.xml` if `CavissonRunTest` already fetched it
+earlier in the same build; otherwise fetched fresh via the same `getJunitReport` endpoint
+`CavissonRunTestExecutor` uses, and parsed **in memory only** — nothing new written to disk.
+
+**Deliberate behavior**: an individual analysis ending in `failed`/`timeout` does **not** fail the
+build — same "report, don't abort" philosophy as `CavissonRunTest`'s test-verdict handling, since
+with `tsrNumber` there can be several concurrent analyses and one bad outcome shouldn't discard
+the rest. Real infrastructure failures (bad connection, the JUnit-fetch call itself failing) still
+throw `AbortException` as usual — this carve-out is only for per-target analysis outcomes.
+
+**Concurrency**: `Executors.newFixedThreadPool(clampConcurrency(requested))`, one `Callable` per
+failing testcase, silently clamped to `[1,8]` (`AnalyseTestFailureExecutor.clampConcurrency`) — no
+validation error for out-of-range values, unlike most other required fields in this plugin.
+
 ### Result values as environment variables
 
 Every task publishes its result values as plain environment variables, visible to later steps in the *same* build/Pipeline run (in addition to the `Map` a Pipeline step call returns directly):
 - `CavissonRunTest` → `CAV_TSR_NUMBER`, `CAV_TSR_STATUS`, `CAV_TSR_REPORT_URL` ("TSR" = Test Suite Run).
 - `CreateTestSuite` → `CAV_NEW_TESTSUITE_NAME`.
+- `AnalyseTestFailure` → `CAV_ANALYSIS_COUNT`, `CAV_ANALYSIS_COMPLETED_COUNT`,
+  `CAV_ANALYSIS_FAILED_COUNT`, `CAV_ANALYSIS_RESULTS_JSON` (the full per-target results list,
+  serialized as JSON — this is the *only* way a Freestyle build can see per-target detail, since
+  Freestyle can't read a Pipeline step's return value and a single scalar env var doesn't fit a
+  variable-length result list).
 
 This is done via `com.cavisson.jenkins.env`: each `<Task>Executor` calls `CavissonEnvironmentPublisher.publish(run, Map<String,String>)` once it has its result. That attaches a small internal `CavissonEnvironmentAction` (an `InvisibleAction`) to the `Run`; a single global `@Extension CavissonEnvironmentContributor extends EnvironmentContributor` merges every such action's vars into `Run#getEnvironment(...)` whenever anything asks for the build's environment. **Do not use `hudson.model.EnvironmentContributingAction` for this** — its `buildEnvVars(AbstractBuild, EnvVars)` signature only fires for Freestyle builds; `WorkflowRun` (Pipeline) isn't an `AbstractBuild`, so Pipeline runs would silently never see the vars. `EnvironmentContributor` is the one extension point that's generic over `Run` and works for both. A new task just needs to build its own vars map and call `CavissonEnvironmentPublisher.publish(run, vars)` — no other wiring required.
 
