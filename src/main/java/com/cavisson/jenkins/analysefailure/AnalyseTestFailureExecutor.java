@@ -1,8 +1,10 @@
 package com.cavisson.jenkins.analysefailure;
 
 import com.cavisson.jenkins.connection.CavissonConnection;
+import com.cavisson.jenkins.env.CavissonDescriptionPublisher;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -58,6 +60,8 @@ final class AnalyseTestFailureExecutor {
                                     String workProfileName,
                                     int concurrency) throws IOException, InterruptedException {
 
+        CavLogger log = new CavLogger(listener, env);
+
         String resolvedTsrNumber = expand(env, tsrNumber);
         String resolvedTrNumber = expand(env, trNumber);
 
@@ -71,6 +75,11 @@ final class AnalyseTestFailureExecutor {
         String baseUrl = connection.getBaseUrl();
         String apiToken = connection.getApiToken();
         boolean allowInsecureSSL = true;
+
+        String pipelineId = envValue(env, "pipelineId", "PIPELINE_ID", "JOB_NAME");
+        String pipelineRunId = envValue(env, "pipelineRunId", "PIPELINE_RUN_ID", "BUILD_NUMBER");
+        String reportUrl = baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?open=analysisfailure-test-report"
+                + "&pipelineId=" + urlEncode(pipelineId) + "&pipelineRunId=" + urlEncode(pipelineRunId);
 
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
@@ -91,38 +100,42 @@ final class AnalyseTestFailureExecutor {
             requireNonEmpty(resolvedWorkProfileName, "Work Profile Name is required when Test Run (trNumber) is used directly.");
 
             targets = new ArrayList<>();
-            targets.add(new AnalysisTarget(resolvedTrNumber.trim(), resolvedScenario, resolvedProject,
+            targets.add(new AnalysisTarget("", resolvedTrNumber.trim(), resolvedScenario, resolvedProject,
                     resolvedSubProject, resolvedUserName, resolvedWorkProfileName));
 
-            listener.getLogger().println("========== Cavisson Analyse Test Failure ==========");
-            listener.getLogger().println("Test Run   : " + resolvedTrNumber.trim());
-            listener.getLogger().println("Scenario   : " + resolvedScenario);
-            listener.getLogger().println("====================================================");
+            log.info("========== Cavisson Analyse Test Failure ==========");
+            log.info("Test Run   : " + resolvedTrNumber.trim());
+            log.info("Scenario   : " + resolvedScenario);
+            log.info("====================================================");
         } else {
-            listener.getLogger().println("========== Cavisson Analyse Test Failure ==========");
-            listener.getLogger().println("Test Suite Run : " + resolvedTsrNumber.trim());
-            listener.getLogger().println("====================================================");
+            log.info("========== Cavisson Analyse Test Failure ==========");
+            log.info("Test Suite Run : " + resolvedTsrNumber.trim());
+            log.info("====================================================");
 
-            String junitXml = loadJunitReport(workspace, listener, baseUrl, headers, allowInsecureSSL, resolvedTsrNumber.trim());
+            String junitXml = loadJunitReport(workspace, log, baseUrl, headers, allowInsecureSSL, resolvedTsrNumber.trim());
             targets = JunitFailureParser.parseFailingTestcases(junitXml);
 
             if (targets.isEmpty()) {
-                listener.getLogger().println("No failing testcases found in Test Suite Run " + resolvedTsrNumber.trim() + ".");
+                log.info("No failing testcases found in Test Suite Run " + resolvedTsrNumber.trim() + ".");
             } else {
-                listener.getLogger().println("Found " + targets.size() + " failing testcase(s) to analyse.");
+                log.info("Found " + targets.size() + " failing testcase(s) to analyse.");
+                for (AnalysisTarget target : targets) {
+                    log.info("  trNumber=" + target.trNumber + " tsrNumber=" + target.tsrNumber
+                            + " scenario=" + target.scenario);
+                }
             }
         }
-
+        
         int clampedConcurrency = clampConcurrency(concurrency);
-        listener.getLogger().println("Concurrency: " + clampedConcurrency);
+        log.debug("Concurrency: " + clampedConcurrency);
 
-        List<Map<String, Object>> results = analyseAll(env, baseUrl, headers, allowInsecureSSL, targets, clampedConcurrency, listener);
+        List<Map<String, Object>> results = analyseAll(env, baseUrl, headers, allowInsecureSSL, targets, clampedConcurrency, log);
 
         long completedCount = results.stream().filter(r -> "completed".equals(r.get("shellStatus"))).count();
         long failedCount = results.size() - completedCount;
 
         for (Map<String, Object> result : results) {
-            listener.getLogger().println("Test Run " + result.get("trNumber") + " (" + result.get("scenario") + "): "
+            log.info("Test Run " + result.get("trNumber") + " (" + result.get("scenario") + "): "
                     + result.get("shellStatus") + (result.get("error") != null && !String.valueOf(result.get("error")).isEmpty()
                     ? " - " + result.get("error") : ""));
         }
@@ -132,6 +145,25 @@ final class AnalyseTestFailureExecutor {
         envVars.put("CAV_ANALYSIS_COMPLETED_COUNT", String.valueOf(completedCount));
         envVars.put("CAV_ANALYSIS_FAILED_COUNT", String.valueOf(failedCount));
         envVars.put("CAV_ANALYSIS_RESULTS_JSON", new JSONArray(results).toString());
+
+        if (results.isEmpty()) {
+            log.debug("No Failed Test Cases found to Analyse");
+        } else {
+            log.info("Analysis completed.");
+            log.info(String.format("        Analyzed : %d", results.size()));
+            log.info(String.format("        Completed: %d", completedCount));
+            log.info(String.format("        Failed   : %d", failedCount));
+            log.info(String.format("        Report   : %s", reportUrl));
+
+            try {
+                CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl);
+            } catch (IOException descriptionError) {
+                log.error("Could not set build description with report link: " + descriptionError.getMessage());
+            }
+
+            envVars.put("CAV_ANALYSIS_REPORT_URL", reportUrl);
+        }
+
         CavissonEnvironmentPublisher.publish(run, envVars);
 
         Map<String, Object> summary = new LinkedHashMap<>();
@@ -139,11 +171,12 @@ final class AnalyseTestFailureExecutor {
         summary.put("completedCount", (int) completedCount);
         summary.put("failedCount", (int) failedCount);
         summary.put("results", results);
+        summary.put("reportUrl", results.isEmpty() ? "" : reportUrl);
         return summary;
     }
 
     private static String loadJunitReport(FilePath workspace,
-                                           TaskListener listener,
+                                           CavLogger log,
                                            String baseUrl,
                                            Map<String, String> headers,
                                            boolean allowInsecureSSL,
@@ -151,11 +184,11 @@ final class AnalyseTestFailureExecutor {
 
         FilePath cachedReport = workspace.child("cavisson-test-results").child("junit-" + tsrNumber + ".xml");
         if (cachedReport.exists()) {
-            listener.getLogger().println("Reusing JUnit report already fetched in this build: " + cachedReport.getRemote());
+            log.debug("Reusing JUnit report already fetched in this build: " + cachedReport.getRemote());
             return cachedReport.readToString();
         }
 
-        listener.getLogger().println("Fetching JUnit report for Test Suite Run " + tsrNumber + "...");
+        log.info("Fetching JUnit report for Test Suite Run " + tsrNumber + "...");
 
         JSONObject junitRequest = new JSONObject();
         junitRequest.put("testRun", tsrNumber);
@@ -175,7 +208,7 @@ final class AnalyseTestFailureExecutor {
                                                           boolean allowInsecureSSL,
                                                           List<AnalysisTarget> targets,
                                                           int concurrency,
-                                                          TaskListener listener) throws InterruptedException, IOException {
+                                                          CavLogger log) throws InterruptedException, IOException {
 
         if (targets.isEmpty()) {
             return new ArrayList<>();
@@ -187,7 +220,7 @@ final class AnalyseTestFailureExecutor {
         try {
             List<Future<Map<String, Object>>> futures = new ArrayList<>();
             for (AnalysisTarget target : targets) {
-                Callable<Map<String, Object>> task = () -> analyseOne(env, apiBase, headers, allowInsecureSSL, target, listener);
+                Callable<Map<String, Object>> task = () -> analyseOne(env, apiBase, headers, allowInsecureSSL, target, log);
                 futures.add(executor.submit(task));
             }
 
@@ -214,10 +247,11 @@ final class AnalyseTestFailureExecutor {
                                                     Map<String, String> headers,
                                                     boolean allowInsecureSSL,
                                                     AnalysisTarget target,
-                                                    TaskListener listener) throws IOException, InterruptedException {
+                                                    CavLogger log) throws IOException, InterruptedException {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("trNumber", target.trNumber);
+        result.put("tsrNumber", target.tsrNumber);
         result.put("scenario", target.scenario);
         result.put("project", target.project);
         result.put("subProject", target.subProject);
@@ -231,9 +265,12 @@ final class AnalyseTestFailureExecutor {
         call1Body.put("userName", target.userName);
         call1Body.put("workProfileName", target.workProfileName);
         call1Body.put("trNumber", target.trNumber);
+        call1Body.put("tsrNumber", target.tsrNumber);
+        call1Body.put("requestFromCli", true);
 
+        log.debug("[TR " + target.trNumber + "] prepareAnalysisContext request: " + call1Body);
         HttpUtil.HttpResult call1Response = HttpUtil.postJson(apiBase + "/prepareAnalysisContext", call1Body.toString(), headers, allowInsecureSSL);
-        listener.getLogger().println("[TR " + target.trNumber + "] prepareAnalysisContext response: " + call1Response.body);
+        log.debug("[TR " + target.trNumber + "] prepareAnalysisContext response: " + call1Response.body);
         JSONObject call1Json = new JSONObject(call1Response.body);
 
         String call1Error = errorMessage(call1Json);
@@ -251,11 +288,13 @@ final class AnalyseTestFailureExecutor {
         call2Body.put("userName", target.userName);
         call2Body.put("workProfileName", target.workProfileName);
         call2Body.put("trNumber", target.trNumber);
+        call2Body.put("tsrNumber", target.tsrNumber);
         call2Body.put("pipelineId", result.get("pipelineId"));
         call2Body.put("pipelineRunId", result.get("pipelineRunId"));
 
+        log.debug("[TR " + target.trNumber + "] runAnalysisAsCli request: " + call2Body);
         HttpUtil.HttpResult call2Response = HttpUtil.postJson(apiBase + "/runAnalysisAsCli", call2Body.toString(), headers, allowInsecureSSL);
-        listener.getLogger().println("[TR " + target.trNumber + "] runAnalysisAsCli response: " + call2Response.body);
+        log.debug("[TR " + target.trNumber + "] runAnalysisAsCli response: " + call2Response.body);
         JSONObject call2Json = new JSONObject(call2Response.body);
 
         String call2Error = errorMessage(call2Json);
@@ -271,7 +310,7 @@ final class AnalyseTestFailureExecutor {
         for (int attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
             String statusUrl = apiBase + "/shellStatus?conversationId=" + urlEncode(conversationId);
             HttpUtil.HttpResult statusResponse = HttpUtil.getJson(statusUrl, headers, allowInsecureSSL);
-            listener.getLogger().println("[TR " + target.trNumber + "] shellStatus response: " + statusResponse.body);
+            log.debug("[TR " + target.trNumber + "] shellStatus response: " + statusResponse.body);
             JSONObject statusJson = new JSONObject(statusResponse.body);
 
             String shellStatus = statusJson.optString("shellStatus", "unknown");

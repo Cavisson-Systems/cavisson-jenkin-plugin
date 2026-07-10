@@ -17,12 +17,12 @@ import java.util.regex.Pattern;
 
 /**
  * Parses a Cavisson JUnit test suite report to find failing testcases and derive each one's
- * analysis inputs (scenario/project/subProject/userName/workProfileName/trNumber) directly from
- * the report, with no extra task inputs needed. Testsuite-level {@code <property name="..."/>}
- * entries give userName ("started_by") and workProfileName (second part of "workspace",
- * e.g. "admin/system" -&gt; "system"); each failing {@code <testcase>}'s own "tr_number" property
- * and its {@code name} attribute (e.g. "AI/demo/testcaseName" -&gt; project/subProject/scenario)
- * give the rest.
+ * analysis inputs (tsrNumber/scenario/project/subProject/userName/workProfileName/trNumber)
+ * directly from the report, with no extra task inputs needed. Testsuite-level
+ * {@code <property name="..."/>} entries give tsrNumber ("tsr_no"), userName ("started_by") and
+ * workProfileName (second part of "workspace", e.g. "admin/system" -&gt; "system"); each failing
+ * {@code <testcase>}'s own "tr_number" property and its {@code name} attribute
+ * (e.g. "AI/demo/testcaseName" -&gt; project/subProject/scenario) give the rest.
  */
 final class JunitFailureParser {
 
@@ -46,6 +46,7 @@ final class JunitFailureParser {
             throw new IOException("Failed to parse JUnit report: " + e.getMessage(), e);
         }
 
+        String tsrNumber = readDirectProperty(testsuite, "tsr_no");
         String userName = readDirectProperty(testsuite, "started_by");
         String workProfileName = secondSegment(readDirectProperty(testsuite, "workspace"), "/");
 
@@ -66,7 +67,7 @@ final class JunitFailureParser {
             String subProject = parts.length > 1 ? parts[1] : "";
             String scenario = parts.length > 0 ? parts[parts.length - 1] : name;
 
-            targets.add(new AnalysisTarget(trNumber, scenario, project, subProject, userName, workProfileName));
+            targets.add(new AnalysisTarget(tsrNumber, trNumber, scenario, project, subProject, userName, workProfileName));
         }
 
         return targets;

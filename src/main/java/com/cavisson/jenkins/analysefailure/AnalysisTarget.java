@@ -6,6 +6,7 @@ package com.cavisson.jenkins.analysefailure;
  */
 final class AnalysisTarget {
 
+    final String tsrNumber;
     final String trNumber;
     final String scenario;
     final String project;
@@ -13,8 +14,9 @@ final class AnalysisTarget {
     final String userName;
     final String workProfileName;
 
-    AnalysisTarget(String trNumber, String scenario, String project, String subProject,
+    AnalysisTarget(String tsrNumber, String trNumber, String scenario, String project, String subProject,
                    String userName, String workProfileName) {
+        this.tsrNumber = tsrNumber;
         this.trNumber = trNumber;
         this.scenario = scenario;
         this.project = project;

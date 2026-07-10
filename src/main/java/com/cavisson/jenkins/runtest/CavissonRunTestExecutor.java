@@ -1,8 +1,10 @@
 package com.cavisson.jenkins.runtest;
 
 import com.cavisson.jenkins.connection.CavissonConnection;
+import com.cavisson.jenkins.env.CavissonDescriptionPublisher;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -51,6 +53,8 @@ final class CavissonRunTestExecutor {
                                     String testSuiteName,
                                     String scenarioName) throws IOException, InterruptedException {
 
+        CavLogger log = new CavLogger(listener, env);
+
         String baseUrl = connection.getBaseUrl();
         String apiToken = connection.getApiToken();
         boolean allowInsecureSSL = true;
@@ -70,13 +74,15 @@ final class CavissonRunTestExecutor {
                     : "Test Name (scenario) is required when Test Type is LoadTest.");
         }
 
-        listener.getLogger().println("========== Cavisson Run Test ==========");
-        listener.getLogger().println("Service Base URL : " + baseUrl);
-        listener.getLogger().println("Test Type        : " + resolvedTestType);
-        listener.getLogger().println("Project          : " + resolvedProject);
-        listener.getLogger().println("Sub Project      : " + resolvedSubProject);
-        listener.getLogger().println("Scenario         : " + targetScenario);
-        listener.getLogger().println("========================================");
+        String targetLabel = "T".equals(mode) ? "Test Suite" : "Test Case";
+
+        log.info("========== Cavisson Run Test ==========");
+        log.info("Service Base URL : " + baseUrl);
+        log.info("Test Type        : " + resolvedTestType);
+        log.info("Project          : " + resolvedProject);
+        log.info("Sub Project      : " + resolvedSubProject);
+        log.info(String.format("%-17s: %s", targetLabel, targetScenario));
+        log.info("========================================");
 
         String apiBase = baseUrl.replaceAll("/+$", "") + API_BASE_PATH;
 
@@ -92,10 +98,10 @@ final class CavissonRunTestExecutor {
         startBody.put("workProfile", resolvedProfile);
         startBody.put("username", resolvedUsername);
 
-        listener.getLogger().println("Triggering Cavisson test " + resolvedProject + "/" + resolvedSubProject + "/" + targetScenario);
+        log.debug("Triggering Cavisson test " + resolvedProject + "/" + resolvedSubProject + "/" + targetScenario);
 
         HttpUtil.HttpResult startResponse = HttpUtil.postJson(apiBase + "/startTest", startBody.toString(), headers, allowInsecureSSL);
-        listener.getLogger().println("startTest response: " + startResponse.body);
+        log.debug("startTest response: " + startResponse.body);
         JSONObject startJson = new JSONObject(startResponse.body);
 
         long runNo = startJson.optLong("run", 0);
@@ -114,12 +120,14 @@ final class CavissonRunTestExecutor {
         // a JUnit report should be published, same as the ADO extension's executionType.
         String executionType = startJson.optString("testType", "").trim().toLowerCase(Locale.ROOT);
 
-        listener.getLogger().println("Test triggered successfully with run number " + runNo);
-        listener.getLogger().println("Polling for test completion...");
+        log.info("Test triggered successfully with run number " + runNo);
+        log.debug("Polling for test completion...");
 
         String finalStatus = null;
         String statusMessage = "";
         String reportUrl = "";
+        int elapsedMinutes = 0;
+        StringBuilder progress = new StringBuilder();
 
         while (true) {
             String statusUrl = apiBase + "/checkConnectionStatus"
@@ -129,7 +137,6 @@ final class CavissonRunTestExecutor {
                     + "&replaceTR=false";
 
             HttpUtil.HttpResult statusResponse = HttpUtil.getJson(statusUrl, headers, allowInsecureSSL);
-            listener.getLogger().println("checkConnectionStatus response: " + statusResponse.body);
             JSONObject statusJson = new JSONObject(statusResponse.body);
 
             boolean running = statusJson.optBoolean("running", false);
@@ -147,17 +154,20 @@ final class CavissonRunTestExecutor {
                 if (shouldPublishJUnit) {
                     long reportRunNo = firstPositive(extractTsrFromUrl(reportUrl), extractTsrFromUrl(htmlReportUrl), runNo);
                     try {
-                        downloadAndPublishJUnitReport(run, workspace, launcher, listener, apiBase, headers,
+                        downloadAndPublishJUnitReport(run, workspace, launcher, listener, log, apiBase, headers,
                                 allowInsecureSSL, reportRunNo, effectiveMode, executionType);
                     } catch (IOException junitError) {
-                        listener.getLogger().println("Could not download/publish JUnit report: " + junitError.getMessage());
+                        log.error("Could not download/publish JUnit report: " + junitError.getMessage());
                     }
                 }
 
                 if (isTerminalStatus(finalStatus)) {
-                    listener.getLogger().println("Test has completed with status '" + finalStatus + "'");
+                    log.info("Test completed.");
+                    log.info(String.format("        Run No : %d", runNo));
+                    log.info(String.format("        Status : %s", finalStatus));
+                    log.info(String.format("        Message: %s", statusMessage));
                     if (!reportUrl.isEmpty()) {
-                        listener.getLogger().println("Report URL is - " + reportUrl);
+                        log.info(String.format("        Report : %s", reportUrl));
                     }
                     break;
                 } else if ("error".equals(finalStatus)) {
@@ -166,17 +176,31 @@ final class CavissonRunTestExecutor {
                     throw new AbortException("Unknown Cavisson test completion status: " + finalStatus);
                 }
             } else {
-                listener.getLogger().println("Test is still active. Waiting 60 seconds...");
+                elapsedMinutes++;
+                progress.append('.');
+
+                if (elapsedMinutes % 5 == 0) {
+                    log.info(String.format("Test is still Running %s (%d min elapsed)", progress, elapsedMinutes));
+                    // Start a fresh progress line for the next 5 minutes.
+                    progress.setLength(0);
+                }
+
                 Thread.sleep(POLL_INTERVAL_MILLIS);
             }
         }
 
         if ("N".equals(effectiveMode)) {
             try {
-                downloadAndArchiveReport(run, workspace, launcher, listener, apiBase, headers, allowInsecureSSL, runNo);
+                downloadAndArchiveReport(run, workspace, launcher, listener, log, apiBase, headers, allowInsecureSSL, runNo);
             } catch (IOException reportError) {
-                listener.getLogger().println("Report download skipped: " + reportError.getMessage());
+                log.error("Report download skipped: " + reportError.getMessage());
             }
+        }
+
+        try {
+            CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl);
+        } catch (IOException descriptionError) {
+            log.error("Could not set build description with report link: " + descriptionError.getMessage());
         }
 
         Map<String, String> envVars = new LinkedHashMap<>();
@@ -197,6 +221,7 @@ final class CavissonRunTestExecutor {
                                                   FilePath workspace,
                                                   Launcher launcher,
                                                   TaskListener listener,
+                                                  CavLogger log,
                                                   String apiBase,
                                                   Map<String, String> headers,
                                                   boolean allowInsecureSSL,
@@ -218,13 +243,14 @@ final class CavissonRunTestExecutor {
         archiver.setOnlyIfSuccessful(false);
         archiver.perform(run, workspace, run.getEnvironment(listener), launcher, listener);
 
-        listener.getLogger().println("HTML report downloaded and published to artifacts: " + reportFile.getName());
+        log.info("HTML report downloaded and published to artifacts: " + reportFile.getName());
     }
 
     private static void downloadAndPublishJUnitReport(Run<?, ?> run,
                                                        FilePath workspace,
                                                        Launcher launcher,
                                                        TaskListener listener,
+                                                       CavLogger log,
                                                        String apiBase,
                                                        Map<String, String> headers,
                                                        boolean allowInsecureSSL,
@@ -247,13 +273,13 @@ final class CavissonRunTestExecutor {
         FilePath junitFile = resultsDir.child("junit-" + reportRunNo + ".xml");
         junitFile.write(junitResponse.body, "UTF-8");
 
-        listener.getLogger().println("JUnit report downloaded: " + junitFile.getRemote());
+        log.debug("JUnit report downloaded: " + junitFile.getRemote());
 
         JUnitResultArchiver archiver = new JUnitResultArchiver("cavisson-test-results/" + junitFile.getName());
         archiver.setAllowEmptyResults(true);
         archiver.perform(run, workspace, launcher, listener);
 
-        listener.getLogger().println("JUnit results published to build Test Results.");
+        log.info("JUnit results published to build Test Results.");
     }
 
     private static long extractTsrFromUrl(String url) {
@@ -307,7 +333,7 @@ final class CavissonRunTestExecutor {
 
     /** "fail" and "failed" are both observed as terminal (non-running) failure statuses. */
     static boolean isTerminalStatus(String status) {
-        return "pass".equals(status) || "fail".equals(status) || "failed".equals(status);
+        return "pass".equals(status) || "fail".equals(status) || "failed".equals(status) || "error".equals(status);
     }
 
     private static String firstNonBlank(String preferred, String fallback) {

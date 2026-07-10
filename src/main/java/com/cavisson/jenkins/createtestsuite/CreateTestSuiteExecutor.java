@@ -3,6 +3,7 @@ package com.cavisson.jenkins.createtestsuite;
 import com.cavisson.jenkins.connection.CavissonConnection;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.model.Run;
@@ -44,6 +45,8 @@ final class CreateTestSuiteExecutor {
                                     String tags,
                                     boolean automatedOnly) throws IOException {
 
+        CavLogger log = new CavLogger(listener, env);
+
         String baseUrl = connection.getBaseUrl();
         String apiToken = connection.getApiToken();
         boolean allowInsecureSSL = true;
@@ -59,13 +62,13 @@ final class CreateTestSuiteExecutor {
             throw new AbortException("At least one tag is required to create a test suite.");
         }
 
-        listener.getLogger().println("========== Cavisson Create Test Suite ==========");
-        listener.getLogger().println("Service Base URL : " + baseUrl);
-        listener.getLogger().println("Project          : " + resolvedProject);
-        listener.getLogger().println("Sub Project      : " + resolvedSubProject);
-        listener.getLogger().println("Workspace/Profile: " + resolvedWorkspace + "/" + resolvedProfile);
-        listener.getLogger().println("Tags             : " + tagsArray);
-        listener.getLogger().println("=================================================");
+        log.info("========== Cavisson Create Test Suite ==========");
+        log.info("Service Base URL : " + baseUrl);
+        log.info("Project          : " + resolvedProject);
+        log.info("Sub Project      : " + resolvedSubProject);
+        log.info("Workspace/Profile: " + resolvedWorkspace + "/" + resolvedProfile);
+        log.info("Tags             : " + tagsArray);
+        log.info("=================================================");
 
         String url = baseUrl.replaceAll("/+$", "") + API_PATH;
 
@@ -85,7 +88,7 @@ final class CreateTestSuiteExecutor {
         requestBody.put("automatedOnly", automatedOnly);
 
         HttpUtil.HttpResult response = HttpUtil.postJson(url, requestBody.toString(), headers, allowInsecureSSL);
-        listener.getLogger().println("createTestSuite response: " + response.body);
+        log.debug("createTestSuite response: " + response.body);
         JSONObject responseJson = new JSONObject(response.body);
 
         if (!isSuccess(responseJson)) {
@@ -93,7 +96,7 @@ final class CreateTestSuiteExecutor {
         }
 
         String testsuite = responseJson.optString("testsuite", "");
-        listener.getLogger().println("Test suite created: " + testsuite);
+        log.info("Test Suite created: " + testsuite);
 
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_NEW_TESTSUITE_NAME", lastPathSegment(testsuite));

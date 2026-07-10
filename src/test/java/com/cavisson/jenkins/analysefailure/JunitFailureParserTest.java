@@ -59,6 +59,7 @@ public class JunitFailureParserTest {
         List<AnalysisTarget> targets = JunitFailureParser.parseFailingTestcases(SAMPLE_REPORT);
 
         AnalysisTarget first = targets.get(0);
+        assertEquals("1061", first.tsrNumber);
         assertEquals("1753", first.trNumber);
         assertEquals("twoproducts_EUR_SAVE10DiscountCoupon", first.scenario);
         assertEquals("AI", first.project);
@@ -72,6 +73,7 @@ public class JunitFailureParserTest {
         List<AnalysisTarget> targets = JunitFailureParser.parseFailingTestcases(SAMPLE_REPORT);
 
         AnalysisTarget second = targets.get(1);
+        assertEquals("1061", second.tsrNumber);
         assertEquals("1754", second.trNumber);
         assertEquals("anotherFailingCase", second.scenario);
     }
