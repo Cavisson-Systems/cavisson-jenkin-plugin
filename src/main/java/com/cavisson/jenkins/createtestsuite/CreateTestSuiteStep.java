@@ -47,6 +47,10 @@ public class CreateTestSuiteStep extends Step {
     private String name = "";
     private String tags = "";
     private boolean automatedOnly = true;
+    private String gitIntegration = "";
+    private String commitId = "";
+    private String mergeId = "";
+    private String codeMappingMode = "";
 
     @DataBoundConstructor
     public CreateTestSuiteStep() {
@@ -151,6 +155,42 @@ public class CreateTestSuiteStep extends Step {
         this.automatedOnly = automatedOnly;
     }
 
+    public String getGitIntegration() {
+        return gitIntegration;
+    }
+
+    @DataBoundSetter
+    public void setGitIntegration(String gitIntegration) {
+        this.gitIntegration = gitIntegration;
+    }
+
+    public String getCommitId() {
+        return commitId;
+    }
+
+    @DataBoundSetter
+    public void setCommitId(String commitId) {
+        this.commitId = commitId;
+    }
+
+    public String getMergeId() {
+        return mergeId;
+    }
+
+    @DataBoundSetter
+    public void setMergeId(String mergeId) {
+        this.mergeId = mergeId;
+    }
+
+    public String getCodeMappingMode() {
+        return codeMappingMode;
+    }
+
+    @DataBoundSetter
+    public void setCodeMappingMode(String codeMappingMode) {
+        this.codeMappingMode = codeMappingMode;
+    }
+
     @Override
     public StepExecutionImpl start(StepContext context) {
         return new StepExecutionImpl(this, context);
@@ -178,7 +218,8 @@ public class CreateTestSuiteStep extends Step {
                     step.getBaseUrl(), step.getApiTokenCredentialId(), step.getCavServiceConnectionId());
 
             return CreateTestSuiteExecutor.run(run, env, listener, connection, step.getProject(), step.getSubProject(),
-                    step.getWorkspace(), step.getProfile(), step.getName(), step.getTags(), step.isAutomatedOnly());
+                    step.getWorkspace(), step.getProfile(), step.getName(), step.getTags(), step.isAutomatedOnly(),
+                    step.getGitIntegration(), step.getCommitId(), step.getMergeId(), step.getCodeMappingMode());
         }
     }
 
@@ -243,8 +284,27 @@ public class CreateTestSuiteStep extends Step {
             return FormValidation.ok();
         }
 
-        public FormValidation doCheckTags(@QueryParameter String value) {
-            return requireNonEmpty(value, "At least one tag is required (comma-separated).");
+        public ListBoxModel doFillCodeMappingModeItems() {
+            ListBoxModel items = new ListBoxModel();
+            items.add("Default (package + class + method)", "");
+            items.add("Package + Class + Method (matchPCM)", "matchPCM");
+            items.add("Package + Class (matchPC)", "matchPC");
+            items.add("Package Only (matchP)", "matchP");
+            return items;
+        }
+
+        public FormValidation doCheckTags(@QueryParameter String value,
+                                           @QueryParameter String gitIntegration,
+                                           @QueryParameter String commitId,
+                                           @QueryParameter String mergeId) {
+            boolean hasTags = value != null && !value.trim().isEmpty();
+            boolean hasDiffSource = gitIntegration != null && !gitIntegration.trim().isEmpty()
+                    && ((commitId != null && !commitId.trim().isEmpty())
+                            || (mergeId != null && !mergeId.trim().isEmpty()));
+            if (!hasTags && !hasDiffSource) {
+                return FormValidation.error("Provide tags, or a Git Integration with a Commit ID/Merge ID.");
+            }
+            return FormValidation.ok();
         }
 
         private static FormValidation requireNonEmpty(String value, String message) {

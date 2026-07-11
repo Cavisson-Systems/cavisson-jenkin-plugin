@@ -48,6 +48,10 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
     private String name = "";
     private String tags = "";
     private boolean automatedOnly = true;
+    private String gitIntegration = "";
+    private String commitId = "";
+    private String mergeId = "";
+    private String codeMappingMode = "";
 
     @DataBoundConstructor
     public CreateTestSuiteBuilder() {
@@ -152,6 +156,42 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
         this.automatedOnly = automatedOnly;
     }
 
+    public String getGitIntegration() {
+        return gitIntegration;
+    }
+
+    @DataBoundSetter
+    public void setGitIntegration(String gitIntegration) {
+        this.gitIntegration = gitIntegration;
+    }
+
+    public String getCommitId() {
+        return commitId;
+    }
+
+    @DataBoundSetter
+    public void setCommitId(String commitId) {
+        this.commitId = commitId;
+    }
+
+    public String getMergeId() {
+        return mergeId;
+    }
+
+    @DataBoundSetter
+    public void setMergeId(String mergeId) {
+        this.mergeId = mergeId;
+    }
+
+    public String getCodeMappingMode() {
+        return codeMappingMode;
+    }
+
+    @DataBoundSetter
+    public void setCodeMappingMode(String codeMappingMode) {
+        this.codeMappingMode = codeMappingMode;
+    }
+
     @Override
     public void perform(@Nonnull Run<?, ?> run,
                          @Nonnull FilePath workspaceDir,
@@ -163,7 +203,8 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
                 run, env, connectionMode, baseUrl, apiTokenCredentialId, cavServiceConnectionId);
 
         Map<String, Object> result = CreateTestSuiteExecutor.run(run, env, listener,
-                connection, project, subProject, workspace, profile, name, tags, automatedOnly);
+                connection, project, subProject, workspace, profile, name, tags, automatedOnly,
+                gitIntegration, commitId, mergeId, codeMappingMode);
 
         listener.getLogger().println("Test suite created: " + result.get("testsuite"));
     }
@@ -224,8 +265,27 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
-        public FormValidation doCheckTags(@QueryParameter String value) {
-            return requireNonEmpty(value, "At least one tag is required (comma-separated).");
+        public ListBoxModel doFillCodeMappingModeItems() {
+            ListBoxModel items = new ListBoxModel();
+            items.add("Default (package + class + method)", "");
+            items.add("Package + Class + Method (matchPCM)", "matchPCM");
+            items.add("Package + Class (matchPC)", "matchPC");
+            items.add("Package Only (matchP)", "matchP");
+            return items;
+        }
+
+        public FormValidation doCheckTags(@QueryParameter String value,
+                                           @QueryParameter String gitIntegration,
+                                           @QueryParameter String commitId,
+                                           @QueryParameter String mergeId) {
+            boolean hasTags = value != null && !value.trim().isEmpty();
+            boolean hasDiffSource = gitIntegration != null && !gitIntegration.trim().isEmpty()
+                    && ((commitId != null && !commitId.trim().isEmpty())
+                            || (mergeId != null && !mergeId.trim().isEmpty()));
+            if (!hasTags && !hasDiffSource) {
+                return FormValidation.error("Provide tags, or a Git Integration with a Commit ID/Merge ID.");
+            }
+            return FormValidation.ok();
         }
 
         private static FormValidation requireNonEmpty(String value, String message) {

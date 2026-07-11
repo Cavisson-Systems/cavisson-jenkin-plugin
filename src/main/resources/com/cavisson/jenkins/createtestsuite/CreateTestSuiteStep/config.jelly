@@ -24,6 +24,15 @@
   <f:entry title="${%Tags}" field="tags">
     <f:textbox default=""/>
   </f:entry>
+  <f:entry title="${%Git Integration}" field="gitIntegration">
+    <f:textbox default=""/>
+  </f:entry>
+  <f:entry title="${%Commit ID}" field="commitId">
+    <f:textbox default=""/>
+  </f:entry>
+  <f:entry title="${%Merge/Pull Request ID}" field="mergeId">
+    <f:textbox default=""/>
+  </f:entry>
   <f:entry title="${%Test Suite Name}" field="name">
     <f:textbox/>
   </f:entry>
@@ -35,6 +44,9 @@
   </f:entry>
   <f:entry title="${%Automated Only}" field="automatedOnly">
     <f:checkbox default="true"/>
+  </f:entry>
+  <f:entry title="${%Code Mapping Mode}" field="codeMappingMode">
+    <f:select default="matchPCM"/>
   </f:entry>
 
 </j:jelly>
