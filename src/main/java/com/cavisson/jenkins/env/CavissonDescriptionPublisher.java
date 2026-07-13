@@ -23,7 +23,13 @@ public final class CavissonDescriptionPublisher {
     private CavissonDescriptionPublisher() {
     }
 
-    public static void appendReportRow(Run<?, ?> run, EnvVars env, String reportUrl) throws IOException {
+    /**
+     * @param taskLabel fallback row label used when {@code STAGE_NAME} isn't set (Freestyle jobs
+     *                  never set it - only Declarative/Scripted Pipeline {@code stage} blocks do),
+     *                  e.g. "Cavisson - Run Test". {@code STAGE_NAME} still wins when present, since
+     *                  it's more specific to the calling Pipeline stage.
+     */
+    public static void appendReportRow(Run<?, ?> run, EnvVars env, String reportUrl, String taskLabel) throws IOException {
         if (reportUrl == null || reportUrl.trim().isEmpty()) {
             return;
         }
@@ -33,7 +39,8 @@ public final class CavissonDescriptionPublisher {
         }
 
         String stageName = env == null ? "" : env.get("STAGE_NAME", "");
-        String row = "<tr><td><b>" + stageName + "</b></td><td><a href='" + reportUrl
+        String label = (stageName != null && !stageName.trim().isEmpty()) ? stageName : taskLabel;
+        String row = "<tr><td><b>" + label + "</b></td><td><a href='" + reportUrl
                 + "' target='_blank'>📊 View Report</a></td></tr>";
 
         String existing = run.getDescription();

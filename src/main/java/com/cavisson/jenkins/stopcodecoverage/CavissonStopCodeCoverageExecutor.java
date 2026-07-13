@@ -96,7 +96,7 @@ final class CavissonStopCodeCoverageExecutor {
         }
 
         try {
-            CavissonDescriptionPublisher.appendReportRow(run, env, fullReportUrl);
+            CavissonDescriptionPublisher.appendReportRow(run, env, fullReportUrl, "Cavisson - Stop Code Coverage");
         } catch (IOException descriptionError) {
             log.error("Could not set build description with report link: " + descriptionError.getMessage());
         }

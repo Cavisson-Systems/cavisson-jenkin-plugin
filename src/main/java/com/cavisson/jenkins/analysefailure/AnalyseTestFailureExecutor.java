@@ -156,7 +156,7 @@ final class AnalyseTestFailureExecutor {
             log.info(String.format("        Report   : %s", reportUrl));
 
             try {
-                CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl);
+                CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl, "Cavisson - Analyse Test Failure");
             } catch (IOException descriptionError) {
                 log.error("Could not set build description with report link: " + descriptionError.getMessage());
             }

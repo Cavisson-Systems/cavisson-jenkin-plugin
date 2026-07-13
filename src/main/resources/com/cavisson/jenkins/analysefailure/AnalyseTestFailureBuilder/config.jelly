@@ -1,40 +1,55 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:st="jelly:stapler">
+
+  <st:adjunct includes="com.cavisson.jenkins.connection.toggle"/>
 
   <f:entry title="${%Connection Mode}" field="connectionMode">
-    <f:select default="direct"/>
+    <f:select default="direct" clazz="cav-connection-mode"/>
   </f:entry>
 
-  <f:entry title="${%Base URL}" field="baseUrl">
+  <f:entry title="${%Base URL}" field="baseUrl" class="cav-conn-direct">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%API Token}" field="apiTokenCredentialId">
+  <f:entry title="${%API Token}" field="apiTokenCredentialId" class="cav-conn-direct">
     <c:select/>
   </f:entry>
-  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId">
+  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId" class="cav-conn-serviceConnection">
     <f:textbox/>
   </f:entry>
 
-  <f:entry title="${%Test Suite Run Number}" field="tsrNumber">
+  <j:set var="cavHasTrNumber" value="${instance != null and instance.trNumber != null and instance.trNumber.trim().length() > 0}"/>
+  <j:set var="cavHasTsrNumber" value="${instance != null and instance.tsrNumber != null and instance.tsrNumber.trim().length() > 0}"/>
+  <j:set var="cavDefaultToTr" value="${cavHasTrNumber and !cavHasTsrNumber}"/>
+
+  <f:entry title="${%Analyse By}">
+    <div class="jenkins-select">
+      <select class="jenkins-select__input select" data-cav-value-controls='{"tsr":["cav-tsr-group"],"tr":["cav-tr-group"]}'>
+        <option value="tsr" selected="${(!cavDefaultToTr) ? 'selected' : null}">${%Test Suite Run Number}</option>
+        <option value="tr" selected="${(cavDefaultToTr) ? 'selected' : null}">${%Test Run Number}</option>
+      </select>
+    </div>
+  </f:entry>
+
+  <f:entry title="${%Test Suite Run Number}" field="tsrNumber" class="cav-tsr-group">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%Test Run Number}" field="trNumber">
+  <f:entry title="${%Test Run Number}" field="trNumber" class="cav-tr-group">
     <f:textbox/>
   </f:entry>
 
-  <f:entry title="${%Scenario}" field="scenario">
+  <f:entry title="${%Scenario}" field="scenario" class="cav-tr-group">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%Project}" field="project">
+  <f:entry title="${%Project}" field="project" class="cav-tr-group">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%Sub Project}" field="subProject">
+  <f:entry title="${%Sub Project}" field="subProject" class="cav-tr-group">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%User Name}" field="userName">
+  <f:entry title="${%User Name}" field="userName" class="cav-tr-group">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%Work Profile Name}" field="workProfileName">
+  <f:entry title="${%Work Profile Name}" field="workProfileName" class="cav-tr-group">
     <f:textbox/>
   </f:entry>
 
