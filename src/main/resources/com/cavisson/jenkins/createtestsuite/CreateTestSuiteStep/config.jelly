@@ -1,17 +1,19 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:st="jelly:stapler">
+
+  <st:adjunct includes="com.cavisson.jenkins.connection.toggle"/>
 
   <f:entry title="${%Connection Mode}" field="connectionMode">
-    <f:select default="direct"/>
+    <f:select default="direct" clazz="cav-connection-mode"/>
   </f:entry>
 
-  <f:entry title="${%Base URL}" field="baseUrl">
+  <f:entry title="${%Base URL}" field="baseUrl" class="cav-conn-direct">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%API Token}" field="apiTokenCredentialId">
+  <f:entry title="${%API Token}" field="apiTokenCredentialId" class="cav-conn-direct">
     <c:select/>
   </f:entry>
-  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId">
+  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId" class="cav-conn-serviceConnection">
     <f:textbox/>
   </f:entry>
 
@@ -21,16 +23,39 @@
   <f:entry title="${%Sub Project}" field="subProject">
     <f:textbox default="default"/>
   </f:entry>
-  <f:entry title="${%Tags}" field="tags">
+  <j:set var="cavHasGitDiff" value="${instance != null and instance.gitIntegration != null and instance.gitIntegration.trim().length() > 0}"/>
+  <j:set var="cavHasTags" value="${instance != null and instance.tags != null and instance.tags.trim().length() > 0}"/>
+
+  <f:entry title="${%Select Testcases By}">
+    <div class="jenkins-select">
+      <select class="jenkins-select__input select"
+              data-cav-value-controls='{"tags":["cav-tags-group"],"diff":["cav-diff-group"],"both":["cav-tags-group","cav-diff-group"]}'>
+        <option value="tags" selected="${(!cavHasGitDiff) ? 'selected' : null}">${%Tags}</option>
+        <option value="diff" selected="${(cavHasGitDiff and !cavHasTags) ? 'selected' : null}">${%Git Diff (Commit/Merge)}</option>
+        <option value="both" selected="${(cavHasGitDiff and cavHasTags) ? 'selected' : null}">${%Tags + Git Diff}</option>
+      </select>
+    </div>
+  </f:entry>
+
+  <f:entry title="${%Tags}" field="tags" class="cav-tags-group">
     <f:textbox default=""/>
   </f:entry>
-  <f:entry title="${%Git Integration}" field="gitIntegration">
+  <f:entry title="${%Git Integration}" field="gitIntegration" class="cav-diff-group">
     <f:textbox default=""/>
   </f:entry>
-  <f:entry title="${%Commit ID}" field="commitId">
+  <f:entry title="${%Diff Source}" class="cav-diff-group">
+    <div class="jenkins-select">
+      <select class="jenkins-select__input select" data-cav-value-controls='{"commit":"cav-commit-group","merge":"cav-merge-group"}'>
+        <option value="commit" selected="${(instance == null or instance.mergeId == null or instance.mergeId.trim().length() == 0) ? 'selected' : null}">${%Commit ID}</option>
+        <option value="merge" selected="${(instance != null and instance.mergeId != null and instance.mergeId.trim().length() > 0) ? 'selected' : null}">${%Merge/Pull Request ID}</option>
+      </select>
+    </div>
+  </f:entry>
+
+  <f:entry title="${%Commit ID}" field="commitId" class="cav-diff-group cav-commit-group">
     <f:textbox default=""/>
   </f:entry>
-  <f:entry title="${%Merge/Pull Request ID}" field="mergeId">
+  <f:entry title="${%Merge/Pull Request ID}" field="mergeId" class="cav-diff-group cav-merge-group">
     <f:textbox default=""/>
   </f:entry>
   <f:entry title="${%Test Suite Name}" field="name">
@@ -45,7 +70,7 @@
   <f:entry title="${%Automated Only}" field="automatedOnly">
     <f:checkbox default="true"/>
   </f:entry>
-  <f:entry title="${%Code Mapping Mode}" field="codeMappingMode">
+  <f:entry title="${%Code Mapping Mode}" field="codeMappingMode" class="cav-diff-group">
     <f:select default="matchPCM"/>
   </f:entry>
 

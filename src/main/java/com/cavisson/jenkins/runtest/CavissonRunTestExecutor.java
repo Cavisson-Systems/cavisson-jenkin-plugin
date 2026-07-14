@@ -198,7 +198,7 @@ final class CavissonRunTestExecutor {
         }
 
         try {
-            CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl);
+            CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl, "Cavisson - Run Test");
         } catch (IOException descriptionError) {
             log.error("Could not set build description with report link: " + descriptionError.getMessage());
         }

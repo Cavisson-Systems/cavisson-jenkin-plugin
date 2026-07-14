@@ -1,28 +1,30 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:st="jelly:stapler">
+
+  <st:adjunct includes="com.cavisson.jenkins.connection.toggle"/>
 
   <f:entry title="${%Connection Mode}" field="connectionMode">
-    <f:select default="direct"/>
+    <f:select default="direct" clazz="cav-connection-mode"/>
   </f:entry>
 
-  <f:entry title="${%Base URL}" field="baseUrl">
+  <f:entry title="${%Base URL}" field="baseUrl" class="cav-conn-direct">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%API Token}" field="apiTokenCredentialId">
+  <f:entry title="${%API Token}" field="apiTokenCredentialId" class="cav-conn-direct">
     <c:select/>
   </f:entry>
-  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId">
+  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId" class="cav-conn-serviceConnection">
     <f:textbox/>
   </f:entry>
 
   <f:entry title="${%Test Type}" field="testType">
-    <f:select default="TestSuite"/>
+    <f:select default="TestSuite" data-cav-value-controls='{"TestSuite":["cav-test-type-suite"],"LoadTest":["cav-test-type-load"]}'/>
   </f:entry>
 
-  <f:entry title="${%TestSuite Name}" field="testSuiteName">
+  <f:entry title="${%TestSuite Name}" field="testSuiteName" class="cav-test-type-suite">
     <f:textbox/>
   </f:entry>
-  <f:entry title="${%Test Name}" field="scenarioName">
+  <f:entry title="${%Test Name}" field="scenarioName" class="cav-test-type-load">
     <f:textbox/>
   </f:entry>
 
