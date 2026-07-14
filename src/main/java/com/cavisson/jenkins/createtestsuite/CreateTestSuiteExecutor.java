@@ -43,7 +43,11 @@ final class CreateTestSuiteExecutor {
                                     String profile,
                                     String name,
                                     String tags,
-                                    boolean automatedOnly) throws IOException {
+                                    boolean automatedOnly,
+                                    String gitIntegration,
+                                    String commitId,
+                                    String mergeId,
+                                    String codeMappingMode) throws IOException {
 
         CavLogger log = new CavLogger(listener, env);
 
@@ -58,8 +62,17 @@ final class CreateTestSuiteExecutor {
         String resolvedName = expand(env, name);
 
         JSONArray tagsArray = parseTags(expand(env, tags));
-        if (tagsArray.isEmpty()) {
-            throw new AbortException("At least one tag is required to create a test suite.");
+        String resolvedGitIntegration = expand(env, gitIntegration);
+        String resolvedCommitId = expand(env, commitId);
+        String resolvedMergeId = expand(env, mergeId);
+        String resolvedCodeMappingMode = expand(env, codeMappingMode);
+
+        boolean hasDiffSource = resolvedGitIntegration != null && !resolvedGitIntegration.trim().isEmpty()
+                && ((resolvedCommitId != null && !resolvedCommitId.trim().isEmpty())
+                        || (resolvedMergeId != null && !resolvedMergeId.trim().isEmpty()));
+
+        if (tagsArray.isEmpty() && !hasDiffSource) {
+            throw new AbortException("At least one of tags, or gitIntegration with commitId/mergeId, is required to create a test suite.");
         }
 
         log.info("========== Cavisson Create Test Suite ==========");
@@ -68,6 +81,14 @@ final class CreateTestSuiteExecutor {
         log.info("Sub Project      : " + resolvedSubProject);
         log.info("Workspace/Profile: " + resolvedWorkspace + "/" + resolvedProfile);
         log.info("Tags             : " + tagsArray);
+        if (hasDiffSource) {
+            log.info("Git Integration  : " + resolvedGitIntegration);
+            if (resolvedMergeId != null && !resolvedMergeId.trim().isEmpty()) {
+                log.info("Merge ID         : " + resolvedMergeId);
+            } else {
+                log.info("Commit ID        : " + resolvedCommitId);
+            }
+        }
         log.info("=================================================");
 
         String url = baseUrl.replaceAll("/+$", "") + API_PATH;
@@ -84,8 +105,21 @@ final class CreateTestSuiteExecutor {
         if (resolvedName != null && !resolvedName.trim().isEmpty()) {
             requestBody.put("name", resolvedName.trim());
         }
-        requestBody.put("tags", tagsArray);
+        if (!tagsArray.isEmpty()) {
+            requestBody.put("tags", tagsArray);
+        }
         requestBody.put("automatedOnly", automatedOnly);
+        if (hasDiffSource) {
+            requestBody.put("gitIntegration", resolvedGitIntegration.trim());
+            if (resolvedMergeId != null && !resolvedMergeId.trim().isEmpty()) {
+                requestBody.put("mergeId", resolvedMergeId.trim());
+            } else {
+                requestBody.put("commitId", resolvedCommitId.trim());
+            }
+            if (resolvedCodeMappingMode != null && !resolvedCodeMappingMode.trim().isEmpty()) {
+                requestBody.put("codeMappingMode", resolvedCodeMappingMode.trim());
+            }
+        }
 
         HttpUtil.HttpResult response = HttpUtil.postJson(url, requestBody.toString(), headers, allowInsecureSSL);
         log.debug("createTestSuite response: " + response.body);

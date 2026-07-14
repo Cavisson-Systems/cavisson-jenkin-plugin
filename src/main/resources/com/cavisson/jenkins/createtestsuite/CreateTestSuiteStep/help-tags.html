@@ -1,5 +1,7 @@
 <div>
-  Comma-separated list of tags, e.g. <code>smoke,regression</code>. Required. Testcases whose
-  tags intersect this list (any match) are included in the generated test suite. Fails with
-  "No match found" if no testcase matches any tag.
+  Comma-separated list of tags, e.g. <code>smoke,regression</code>. Testcases whose tags
+  intersect this list (any match) are included in the generated test suite. Optional as long as
+  a Git Integration with a Commit ID or Merge/Pull Request ID is given instead; if both are
+  given, the resulting test suite is their union. Fails with "No match found" if neither source
+  matches any testcase.
 </div>
