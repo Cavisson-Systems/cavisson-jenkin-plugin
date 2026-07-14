@@ -3,6 +3,7 @@ package com.cavisson.jenkins.createtestsuite;
 import com.cavisson.jenkins.connection.CavissonConnection;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
+import com.cavisson.jenkins.log.AnsiColors;
 import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -15,7 +16,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Calls the Scenario Service "Create Test Suite" REST API
@@ -131,15 +134,68 @@ final class CreateTestSuiteExecutor {
 
         String testsuite = responseJson.optString("testsuite", "");
         log.info("Test Suite created: " + testsuite);
+        logTestSuiteDetails(log, responseJson);
 
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_NEW_TESTSUITE_NAME", lastPathSegment(testsuite));
         CavissonEnvironmentPublisher.publish(run, envVars);
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("status", "success");
+        result.put("status", AnsiColors.status("Success"));
         result.put("testsuite", testsuite);
         return result;
+    }
+
+    /**
+     * Prints the "Test Suite Creation" summary block: overall status, total distinct testcase
+     * count, and a per-file breakdown (grouped by the response's "change" code - "m" = Modified,
+     * "n" = New, anything else falls back to "Changed") listing the testcases each file affected.
+     */
+    private static void logTestSuiteDetails(CavLogger log, JSONObject responseJson) {
+        String status = responseJson.optString("status", "");
+        JSONArray details = responseJson.optJSONArray("details");
+
+        log.info("Test Suite Creation : " + AnsiColors.bold(AnsiColors.status(status)));
+        if (details == null || details.isEmpty()) {
+            return;
+        }
+
+        Set<String> allTestcases = new LinkedHashSet<>();
+        for (int i = 0; i < details.length(); i++) {
+            JSONArray testcases = details.getJSONObject(i).optJSONArray("testcases");
+            if (testcases != null) {
+                for (int j = 0; j < testcases.length(); j++) {
+                    allTestcases.add(testcases.getString(j));
+                }
+            }
+        }
+
+        log.info("   Testsuite created with " + AnsiColors.bold(String.valueOf(allTestcases.size())) + " test cases, ");
+        log.info("   Detailed Summary - ");
+        for (int i = 0; i < details.length(); i++) {
+            JSONObject detail = details.getJSONObject(i);
+            String file = detail.optString("file", "");
+            String label = changeLabel(detail.optString("change", ""));
+            log.info("     " + label + " - " + file + " ");
+
+            JSONArray testcases = detail.optJSONArray("testcases");
+            if (testcases != null) {
+                for (int j = 0; j < testcases.length(); j++) {
+                    log.info("       " + testcases.getString(j));
+                }
+            }
+        }
+    }
+
+    /** "m" -> cyan "[MODIFIED]", "n" -> yellow "[NEW]", anything else -> plain "[CHANGED]". */
+    private static String changeLabel(String change) {
+        if ("m".equalsIgnoreCase(change)) {
+            return AnsiColors.cyan("[MODIFIED]");
+        }
+        if ("n".equalsIgnoreCase(change)) {
+            return AnsiColors.yellow("[NEW]");
+        }
+        return "[CHANGED]";
     }
 
     static boolean isSuccess(JSONObject responseJson) {
