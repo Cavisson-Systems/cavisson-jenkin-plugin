@@ -4,6 +4,7 @@ import com.cavisson.jenkins.connection.CavissonConnection;
 import com.cavisson.jenkins.env.CavissonDescriptionPublisher;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
+import com.cavisson.jenkins.log.AnsiColors;
 import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -14,12 +15,23 @@ import hudson.model.TaskListener;
 import hudson.tasks.ArtifactArchiver;
 import hudson.tasks.junit.JUnitResultArchiver;
 import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -128,6 +140,7 @@ final class CavissonRunTestExecutor {
         String reportUrl = "";
         int elapsedMinutes = 0;
         StringBuilder progress = new StringBuilder();
+        JunitSummary junitSummary = null;
 
         while (true) {
             String statusUrl = apiBase + "/checkConnectionStatus"
@@ -154,7 +167,7 @@ final class CavissonRunTestExecutor {
                 if (shouldPublishJUnit) {
                     long reportRunNo = firstPositive(extractTsrFromUrl(reportUrl), extractTsrFromUrl(htmlReportUrl), runNo);
                     try {
-                        downloadAndPublishJUnitReport(run, workspace, launcher, listener, log, apiBase, headers,
+                        junitSummary = downloadAndPublishJUnitReport(run, workspace, launcher, listener, log, apiBase, headers,
                                 allowInsecureSSL, reportRunNo, effectiveMode, executionType);
                     } catch (IOException junitError) {
                         log.error("Could not download/publish JUnit report: " + junitError.getMessage());
@@ -163,11 +176,21 @@ final class CavissonRunTestExecutor {
 
                 if (isTerminalStatus(finalStatus)) {
                     log.info("Test completed.");
-                    log.info(String.format("        Run No : %d", runNo));
-                    log.info(String.format("        Status : %s", finalStatus));
-                    log.info(String.format("        Message: %s", statusMessage));
+                    if (junitSummary != null) {
+                        log.info(String.format("        Total TestCases - %d, Success - %s, Failure - %s",
+                                junitSummary.total, AnsiColors.green(String.valueOf(junitSummary.success)),
+                                AnsiColors.red(String.valueOf(junitSummary.failures.size()))));
+                    }
+                    log.info(String.format("        Status : %s", AnsiColors.status(finalStatus)));
+                    log.debug(String.format("        Message: %s", statusMessage));
                     if (!reportUrl.isEmpty()) {
                         log.info(String.format("        Report : %s", reportUrl));
+                    }
+                    if (junitSummary != null && !junitSummary.failures.isEmpty()) {
+                        log.info(AnsiColors.red("        Failure Test Case(s) - "));
+                        for (String failure : junitSummary.failures) {
+                            log.info("            " + AnsiColors.red(failure));
+                        }
                     }
                     break;
                 } else if ("error".equals(finalStatus)) {
@@ -246,7 +269,7 @@ final class CavissonRunTestExecutor {
         log.info("HTML report downloaded and published to artifacts: " + reportFile.getName());
     }
 
-    private static void downloadAndPublishJUnitReport(Run<?, ?> run,
+    private static JunitSummary downloadAndPublishJUnitReport(Run<?, ?> run,
                                                        FilePath workspace,
                                                        Launcher launcher,
                                                        TaskListener listener,
@@ -280,6 +303,94 @@ final class CavissonRunTestExecutor {
         archiver.perform(run, workspace, launcher, listener);
 
         log.info("JUnit results published to build Test Results.");
+
+        try {
+            return parseJunitSummary(junitResponse.body);
+        } catch (IOException summaryError) {
+            log.error("Could not summarize JUnit report: " + summaryError.getMessage());
+            return null;
+        }
+    }
+
+    /** Holds the counts and failing testcase names derived from a JUnit report. */
+    private static final class JunitSummary {
+        final int total;
+        final int success;
+        final List<String> failures;
+
+        JunitSummary(int total, int success, List<String> failures) {
+            this.total = total;
+            this.success = success;
+            this.failures = failures;
+        }
+    }
+
+    /**
+     * Derives a "Total testcase - X, Success - Y, Failure - Z" summary plus the list of failing
+     * testcase names, from each {@code <testcase>}'s own "status" property - same per-testcase
+     * status source {@code JunitFailureParser} in the analysefailure package uses - rather than
+     * the {@code <testsuite>} tag's own tests/failures attributes, since those aren't reliably
+     * populated in Cavisson's JUnit report.
+     */
+    private static JunitSummary parseJunitSummary(String junitXml) throws IOException {
+        Element testsuite;
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(new InputSource(new StringReader(junitXml)));
+            testsuite = document.getDocumentElement();
+        } catch (ParserConfigurationException | org.xml.sax.SAXException e) {
+            throw new IOException("Failed to parse JUnit report: " + e.getMessage(), e);
+        }
+
+        NodeList testcases = testsuite.getElementsByTagName("testcase");
+        List<String> failures = new ArrayList<>();
+        int total = testcases.getLength();
+        int success = 0;
+
+        for (int i = 0; i < total; i++) {
+            Element testcase = (Element) testcases.item(i);
+            if ("failed".equalsIgnoreCase(readDirectProperty(testcase, "status"))) {
+                failures.add(testcase.getAttribute("name"));
+            } else {
+                success++;
+            }
+        }
+
+        return new JunitSummary(total, success, failures);
+    }
+
+    private static Element directChild(Element parent, String tagName) {
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE && tagName.equals(node.getNodeName())) {
+                return (Element) node;
+            }
+        }
+        return null;
+    }
+
+    private static String readDirectProperty(Element parent, String propertyName) {
+        Element properties = directChild(parent, "properties");
+        if (properties == null) {
+            return "";
+        }
+
+        NodeList propertyNodes = properties.getElementsByTagName("property");
+        for (int i = 0; i < propertyNodes.getLength(); i++) {
+            Element property = (Element) propertyNodes.item(i);
+            if (propertyName.equals(property.getAttribute("name"))) {
+                return property.getAttribute("value");
+            }
+        }
+        return "";
     }
 
     private static long extractTsrFromUrl(String url) {

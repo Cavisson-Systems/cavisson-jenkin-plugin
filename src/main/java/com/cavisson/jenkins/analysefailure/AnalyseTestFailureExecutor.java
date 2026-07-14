@@ -78,9 +78,8 @@ final class AnalyseTestFailureExecutor {
 
         String pipelineId = envValue(env, "pipelineId", "PIPELINE_ID", "JOB_NAME");
         String pipelineRunId = envValue(env, "pipelineRunId", "PIPELINE_RUN_ID", "BUILD_NUMBER");
-        String reportUrl = baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?open=analysisfailure-test-report"
-                + "&pipelineId=" + urlEncode(pipelineId) + "&pipelineRunId=" + urlEncode(pipelineRunId);
-
+        // String reportUrl = baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?open=analysisfailure-test-report" + "&pipelineId=" + urlEncode(pipelineId) + "&pipelineRunId=" + urlEncode(pipelineRunId);
+        String reportUrl = baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?tsr=" + urlEncode(resolvedTsrNumber) + "&open=test-execution-report&Status=Failure";
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
         headers.put("cavToken", apiToken);
