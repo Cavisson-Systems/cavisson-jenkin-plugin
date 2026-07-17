@@ -1,0 +1,7 @@
+<div>
+  Required. Name of the quality gate to evaluate &mdash; sent as <code>qualityGateName</code> in
+  the evaluate request. Use this step once at the end of a pipeline, instead of setting a
+  per-stage <code>qualityGate</code> field on each Static/Container/Dynamic scan step, to
+  evaluate a single combined gate covering every stage that already ran under this pipeline
+  build. Typically set via Pipeline (<code>qualityGateName: 'Release Gate'</code>).
+</div>

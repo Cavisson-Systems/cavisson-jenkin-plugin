@@ -36,7 +36,7 @@ import java.util.Set;
  */
 public class CavissonStartCodeCoverageStep extends Step {
 
-    private String connectionMode = "direct";
+    private String connectionMode = "serviceConnection";
     private String baseUrl = "";
     private String apiTokenCredentialId = "";
     private String cavServiceConnectionId = "";
@@ -143,8 +143,8 @@ public class CavissonStartCodeCoverageStep extends Step {
 
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
-            items.add("Direct (Base URL + API Token)", "direct");
             items.add("Existing Service Connection", "serviceConnection");
+            items.add("Direct (Base URL + API Token)", "direct");
             return items;
         }
 

@@ -1,0 +1,8 @@
+<div>
+  Optional. Name of the quality gate to evaluate after the scan finishes &mdash; sent as
+  <code>qualityGateName</code> in the evaluate request. When set, the quality-gate evaluation
+  REST call is triggered after Static, Container (SCA), or Dynamic (DAST) scans (for Static,
+  only if the scan also produced a SonarQube <code>ceTaskId</code>); when left empty,
+  quality-gate evaluation is skipped. Typically set via Pipeline
+  (<code>qualityGate: 'Release Gate'</code>).
+</div>

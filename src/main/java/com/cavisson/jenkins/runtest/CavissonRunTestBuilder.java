@@ -2,6 +2,7 @@ package com.cavisson.jenkins.runtest;
 
 import com.cavisson.jenkins.connection.CavissonConnection;
 import com.cavisson.jenkins.connection.CavissonConnectionResolver;
+import com.cavisson.jenkins.connection.CavServiceConnection;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -38,7 +39,7 @@ public class CavissonRunTestBuilder extends Builder implements SimpleBuildStep {
 
     private String testType = "TestSuite";
 
-    private String connectionMode = "direct";
+    private String connectionMode = "serviceConnection";
     private String baseUrl = "";
     private String apiTokenCredentialId = "";
     private String cavServiceConnectionId = "";
@@ -192,8 +193,8 @@ public class CavissonRunTestBuilder extends Builder implements SimpleBuildStep {
 
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
-            items.add("Direct (Base URL + API Token)", "direct");
             items.add("Existing Service Connection", "serviceConnection");
+            items.add("Direct (Base URL + API Token)", "direct");
             return items;
         }
 
@@ -223,6 +224,20 @@ public class CavissonRunTestBuilder extends Builder implements SimpleBuildStep {
                 return requireNonEmpty(value, "API Token credential is required.");
             }
             return FormValidation.ok();
+        }
+
+        public ListBoxModel doFillCavServiceConnectionIdItems(@AncestorInPath Item item,
+                                                               @QueryParameter String cavServiceConnectionId) {
+            StandardListBoxModel result = new StandardListBoxModel();
+
+            if (item == null) {
+                return result.includeCurrentValue(cavServiceConnectionId);
+            }
+
+            return result
+                    .includeEmptyValue()
+                    .includeAs(ACL.SYSTEM, item, CavServiceConnection.class)
+                    .includeCurrentValue(cavServiceConnectionId);
         }
 
         public FormValidation doCheckCavServiceConnectionId(@QueryParameter String value, @QueryParameter String connectionMode) {

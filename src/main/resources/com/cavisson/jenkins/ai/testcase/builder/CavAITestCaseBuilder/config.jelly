@@ -1,0 +1,152 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core"
+         xmlns:f="/lib/form"
+         xmlns:c="/lib/credentials"
+         xmlns:st="jelly:stapler">
+
+  <!-- Connection -->
+  <f:section title="Connection">
+    <f:entry title="Service Connection"
+             field="cavServiceConnectionId"
+             description="Jenkins Credential ID of the Cav AI Service Connection (Dashboard Server URL, Cav Token). Configure it under Manage Jenkins &gt; Credentials.">
+      <c:select/>
+    </f:entry>
+
+    <f:entry title="Application URL"
+             field="applicationUrl"
+             description="URL of the application under test. Example: https://www.saucedemo.com">
+      <f:textbox placeholder="https://www.saucedemo.com" checkMethod="post"/>
+    </f:entry>
+  </f:section>
+
+  <!-- PRD Source -->
+  <f:section title="PRD Source">
+
+    <f:entry title="PRD Source Type"
+             field="prdSourceType"
+             description="How the PRD is obtained. LOCAL: upload file from browser. GIT: clone repository. JIRA: fetch from JIRA epic via AI server.">
+      <f:select/>
+    </f:entry>
+
+    <!-- LOCAL source fields -->
+    <f:entry title="PRD File Parameter Name"
+             field="prdParameterName"
+             description="Name of the Jenkins file parameter. The pipeline must declare: file(name: 'PRD_FILE_UPLOAD', ...). Default: PRD_FILE_UPLOAD. Only used when Source Type is LOCAL.">
+      <f:textbox default="PRD_FILE_UPLOAD"/>
+    </f:entry>
+
+    <f:entry title="PRD File Path (Legacy - optional)"
+             field="prdFile"
+             description="Optional fallback: path to a PRD file already in the Jenkins workspace. Leave empty when using file upload.">
+      <f:textbox placeholder="Leave empty when using file upload"/>
+    </f:entry>
+
+    <!-- GIT source fields -->
+    <f:entry title="Git Repository URL"
+             field="gitRepoUrl"
+             description="Full Git repository URL. Example: https://github.com/org/repo.git. Required when Source Type is GIT.">
+      <f:textbox placeholder="https://github.com/org/repo.git" checkMethod="post"/>
+    </f:entry>
+
+    <f:entry title="Git Branch"
+             field="gitBranch"
+             description="Branch to clone. Default: main. Used when Source Type is GIT.">
+      <f:textbox default="main" placeholder="main"/>
+    </f:entry>
+
+    <f:entry title="PRD File Path in Repository"
+             field="gitPrdPath"
+             description="Relative path to the PRD file inside the repository. Example: docs/SauceDemoTEST.feature. Required when Source Type is GIT.">
+      <f:textbox placeholder="docs/MyPRD.feature" checkMethod="post"/>
+    </f:entry>
+
+    <!-- JIRA source fields (NEW) -->
+    <f:entry title="JIRA Epic Pattern"
+             field="jiraEpicPattern"
+             description="JIRA epic key or pattern to fetch stories from. Example: EM-527. Required when Source Type is JIRA. The AI server fetches stories from this epic and generates test cases.">
+      <f:textbox placeholder="EM-527" checkMethod="post"/>
+    </f:entry>
+
+    <f:entry title="JIRA Integration Name"
+             field="jiraIntegrationName"
+             description="Name of the saved JIRA integration in Cavisson. Example: JIRA_CONFIG_TEST. Required when Source Type is JIRA. The AI server uses this to connect to JIRA.">
+      <f:textbox placeholder="JIRA_CONFIG_TEST" checkMethod="post"/>
+    </f:entry>
+
+    <!-- Common fields -->
+    <f:entry title="Source Type"
+             field="sourceType"
+             description="Format of the PRD document. Used for LOCAL and GIT sources. Ignored for JIRA source.">
+      <f:select/>
+    </f:entry>
+
+    <f:entry title="Workspace Root"
+             field="workspaceRoot"
+             description="Root directory on the Cavisson server. Plugin uploads to {workspaceRoot}/agenticAi/aiTestCases. Used for LOCAL and GIT sources. Default: /home/cavisson/work.">
+      <f:textbox default="/home/cavisson/work" checkMethod="post"/>
+    </f:entry>
+
+  </f:section>
+
+  <!-- Pipeline Configuration -->
+  <f:section title="Pipeline Configuration">
+
+    <f:entry title="Project"
+             field="project"
+             description="Cavisson project name. Default: default.">
+      <f:textbox default="default" checkMethod="post"/>
+    </f:entry>
+
+    <f:entry title="Sub Project"
+             field="subProject"
+             description="Cavisson sub-project name. Default: default.">
+      <f:textbox default="default" checkMethod="post"/>
+    </f:entry>
+
+    <f:entry title="Test Suite Name"
+             field="testSuiteName"
+             description="Name for the generated test suite. If left empty, the plugin auto-generates one (AI_TestSuite_&lt;timestamp&gt;).">
+      <f:textbox placeholder="Auto-generated if left empty"/>
+    </f:entry>
+
+    <f:entry title="Number of Test Cases"
+             field="numberOfTestCases"
+             description="How many test cases to generate (must be greater than 0). Default: 1.">
+      <f:number min="1" default="1" checkMethod="post"/>
+    </f:entry>
+
+    <f:entry title="Controller Name"
+             field="controllerName"
+             description="NetStorm controller name. Default: work.">
+      <f:textbox default="work" checkMethod="post"/>
+    </f:entry>
+
+  </f:section>
+
+  <!-- Application Login (optional) -->
+  <f:section title="Application Login (optional)">
+
+    <f:entry title="Username" field="username">
+      <f:textbox/>
+    </f:entry>
+
+    <f:entry title="Password" field="password">
+      <f:password/>
+    </f:entry>
+
+    <f:entry title="Authentication Prompt" field="authenticationPrompt">
+      <f:textbox/>
+    </f:entry>
+
+  </f:section>
+
+  <!-- Tags -->
+  <f:section title="Tags">
+    <f:entry title="Tags"
+             field="tagsText"
+             description="Optional key=value tags, one per line. Example: app=boutique. Default: no tags (field is omitted from the request entirely).">
+      <f:textarea/>
+    </f:entry>
+  </f:section>
+
+</j:jelly>

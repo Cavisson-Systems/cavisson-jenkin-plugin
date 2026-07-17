@@ -1,0 +1,30 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:st="jelly:stapler">
+
+  <st:adjunct includes="com.cavisson.jenkins.connection.toggle"/>
+
+  <f:entry title="${%Connection Mode}" field="connectionMode">
+    <f:select default="serviceConnection" clazz="cav-connection-mode"/>
+  </f:entry>
+
+  <f:entry title="${%Base URL}" field="baseUrl" class="cav-conn-direct">
+    <f:textbox/>
+  </f:entry>
+  <f:entry title="${%API Token}" field="apiTokenCredentialId" class="cav-conn-direct">
+    <c:select/>
+  </f:entry>
+  <f:entry title="${%Cavisson Quality Gate Service Connection}" field="cavConnection" class="cav-conn-serviceConnection">
+    <f:select/>
+  </f:entry>
+
+  <f:entry title="${%Quality Gate Name}" field="qualityGateName">
+    <f:textbox/>
+  </f:entry>
+
+  <f:advanced>
+    <f:entry title="${%Quality Gate Timeout Seconds}" field="qualityGateTimeout">
+      <f:textbox default="120"/>
+    </f:entry>
+  </f:advanced>
+
+</j:jelly>

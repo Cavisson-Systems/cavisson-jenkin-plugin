@@ -4,7 +4,7 @@
   <st:adjunct includes="com.cavisson.jenkins.connection.toggle"/>
 
   <f:entry title="${%Connection Mode}" field="connectionMode">
-    <f:select default="direct" clazz="cav-connection-mode"/>
+    <f:select default="serviceConnection" clazz="cav-connection-mode"/>
   </f:entry>
 
   <f:entry title="${%Base URL}" field="baseUrl" class="cav-conn-direct">
@@ -13,8 +13,8 @@
   <f:entry title="${%API Token}" field="apiTokenCredentialId" class="cav-conn-direct">
     <c:select/>
   </f:entry>
-  <f:entry title="${%Service Connection ID}" field="cavServiceConnectionId" class="cav-conn-serviceConnection">
-    <f:textbox/>
+  <f:entry title="${%Service Connection}" field="cavServiceConnectionId" class="cav-conn-serviceConnection">
+    <f:select/>
   </f:entry>
 
   <f:entry title="${%Project}" field="project">

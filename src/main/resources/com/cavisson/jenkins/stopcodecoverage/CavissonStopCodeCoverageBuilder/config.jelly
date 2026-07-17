@@ -4,7 +4,7 @@
   <st:adjunct includes="com.cavisson.jenkins.connection.toggle"/>
 
   <f:entry title="${%Connection Mode}" field="connectionMode">
-    <f:select default="direct" clazz="cav-connection-mode"/>
+    <f:select default="serviceConnection" clazz="cav-connection-mode"/>
   </f:entry>
 
   <f:entry title="${%Base URL}" field="baseUrl" class="cav-conn-direct">

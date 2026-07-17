@@ -91,6 +91,13 @@
       <artifactId>json</artifactId>
       <version>20240303</version>
     </dependency>
+
+    <!-- Used by the merged-in security-scan task (com.cavisson.jenkins.security) for nullability annotations. -->
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <version>3.0.2</version>
+    </dependency>
   </dependencies>
 
   <!-- Pin transitive plugin versions that conflict within the junit plugin's own dependency
