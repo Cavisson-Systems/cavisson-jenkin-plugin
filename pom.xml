@@ -16,7 +16,7 @@
   <version>1.0.0-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
-  <name>Cavisson Jenkins Tasks</name>
+  <name>Cavisson Plugin</name>
   <url>http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin</url>
 
   <licenses>

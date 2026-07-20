@@ -21,71 +21,104 @@
 
   <!-- PRD Source -->
   <f:section title="PRD Source">
+    <div id="cavAiPrdSource">
 
     <f:entry title="PRD Source Type"
              field="prdSourceType"
              description="How the PRD is obtained. LOCAL: upload file from browser. GIT: clone repository. JIRA: fetch from JIRA epic via AI server.">
-      <f:select/>
+      <f:select id="cavAiPrdSourceType"/>
     </f:entry>
 
     <!-- LOCAL source fields -->
-    <f:entry title="PRD File Parameter Name"
-             field="prdParameterName"
-             description="Name of the Jenkins file parameter. The pipeline must declare: file(name: 'PRD_FILE_UPLOAD', ...). Default: PRD_FILE_UPLOAD. Only used when Source Type is LOCAL.">
-      <f:textbox default="PRD_FILE_UPLOAD"/>
-    </f:entry>
+    <div class="prd-source-group prd-source-local">
+      <f:entry title="PRD File Parameter Name"
+               field="prdParameterName"
+               description="Name of the Jenkins file parameter. The pipeline must declare: file(name: 'PRD_FILE_UPLOAD', ...). Default: PRD_FILE_UPLOAD. Only used when Source Type is LOCAL.">
+        <f:textbox default="PRD_FILE_UPLOAD"/>
+      </f:entry>
 
-    <f:entry title="PRD File Path (Legacy - optional)"
-             field="prdFile"
-             description="Optional fallback: path to a PRD file already in the Jenkins workspace. Leave empty when using file upload.">
-      <f:textbox placeholder="Leave empty when using file upload"/>
-    </f:entry>
+      <f:entry title="PRD File Path (Legacy - optional)"
+               field="prdFile"
+               description="Optional fallback: path to a PRD file already in the Jenkins workspace. Leave empty when using file upload.">
+        <f:textbox placeholder="Leave empty when using file upload"/>
+      </f:entry>
+    </div>
 
     <!-- GIT source fields -->
-    <f:entry title="Git Repository URL"
-             field="gitRepoUrl"
-             description="Full Git repository URL. Example: https://github.com/org/repo.git. Required when Source Type is GIT.">
-      <f:textbox placeholder="https://github.com/org/repo.git" checkMethod="post"/>
-    </f:entry>
+    <div class="prd-source-group prd-source-git">
+      <f:entry title="Git Repository URL"
+               field="gitRepoUrl"
+               description="Full Git repository URL. Example: https://github.com/org/repo.git. Required when Source Type is GIT.">
+        <f:textbox placeholder="https://github.com/org/repo.git" checkMethod="post"/>
+      </f:entry>
 
-    <f:entry title="Git Branch"
-             field="gitBranch"
-             description="Branch to clone. Default: main. Used when Source Type is GIT.">
-      <f:textbox default="main" placeholder="main"/>
-    </f:entry>
+      <f:entry title="Git Branch"
+               field="gitBranch"
+               description="Branch to clone. Default: main. Used when Source Type is GIT.">
+        <f:textbox default="main" placeholder="main"/>
+      </f:entry>
 
-    <f:entry title="PRD File Path in Repository"
-             field="gitPrdPath"
-             description="Relative path to the PRD file inside the repository. Example: docs/SauceDemoTEST.feature. Required when Source Type is GIT.">
-      <f:textbox placeholder="docs/MyPRD.feature" checkMethod="post"/>
-    </f:entry>
+      <f:entry title="PRD File Path in Repository"
+               field="gitPrdPath"
+               description="Relative path to the PRD file inside the repository. Example: docs/SauceDemoTEST.feature. Required when Source Type is GIT.">
+        <f:textbox placeholder="docs/MyPRD.feature" checkMethod="post"/>
+      </f:entry>
+    </div>
 
     <!-- JIRA source fields (NEW) -->
-    <f:entry title="JIRA Epic Pattern"
-             field="jiraEpicPattern"
-             description="JIRA epic key or pattern to fetch stories from. Example: EM-527. Required when Source Type is JIRA. The AI server fetches stories from this epic and generates test cases.">
-      <f:textbox placeholder="EM-527" checkMethod="post"/>
-    </f:entry>
+    <div class="prd-source-group prd-source-jira">
+      <f:entry title="JIRA Epic Pattern"
+               field="jiraEpicPattern"
+               description="JIRA epic key or pattern to fetch stories from. Example: EM-527. Required when Source Type is JIRA. The AI server fetches stories from this epic and generates test cases.">
+        <f:textbox placeholder="EM-527" checkMethod="post"/>
+      </f:entry>
 
-    <f:entry title="JIRA Integration Name"
-             field="jiraIntegrationName"
-             description="Name of the saved JIRA integration in Cavisson. Example: JIRA_CONFIG_TEST. Required when Source Type is JIRA. The AI server uses this to connect to JIRA.">
-      <f:textbox placeholder="JIRA_CONFIG_TEST" checkMethod="post"/>
-    </f:entry>
+      <f:entry title="JIRA Integration Name"
+               field="jiraIntegrationName"
+               description="Name of the saved JIRA integration in Cavisson. Example: JIRA_CONFIG_TEST. Required when Source Type is JIRA. The AI server uses this to connect to JIRA.">
+        <f:textbox placeholder="JIRA_CONFIG_TEST" checkMethod="post"/>
+      </f:entry>
+    </div>
 
     <!-- Common fields -->
-    <f:entry title="Source Type"
-             field="sourceType"
-             description="Format of the PRD document. Used for LOCAL and GIT sources. Ignored for JIRA source.">
-      <f:select/>
-    </f:entry>
+    <div class="prd-source-group prd-source-local prd-source-git">
+      <f:entry title="Source Type"
+               field="sourceType"
+               description="Format of the PRD document. Used for LOCAL and GIT sources. Ignored for JIRA source.">
+        <f:select/>
+      </f:entry>
 
-    <f:entry title="Workspace Root"
-             field="workspaceRoot"
-             description="Root directory on the Cavisson server. Plugin uploads to {workspaceRoot}/agenticAi/aiTestCases. Used for LOCAL and GIT sources. Default: /home/cavisson/work.">
-      <f:textbox default="/home/cavisson/work" checkMethod="post"/>
-    </f:entry>
+      <f:entry title="Workspace Root"
+               field="workspaceRoot"
+               description="Root directory on the Cavisson server. Plugin uploads to {workspaceRoot}/agenticAi/aiTestCases. Used for LOCAL and GIT sources. Default: /home/cavisson/work.">
+        <f:textbox default="/home/cavisson/work" checkMethod="post"/>
+      </f:entry>
+    </div>
 
+    </div>
+
+    <script>
+      (function() {
+        var container = document.getElementById('cavAiPrdSource');
+        var select = document.getElementById('cavAiPrdSourceType');
+        if (!container || !select) { return; }
+        function hasClass(el, cls) {
+          return (' ' + el.className + ' ').indexOf(' ' + cls + ' ') &gt;= 0;
+        }
+        function update() {
+          var value = (select.value || 'LOCAL').toLowerCase();
+          var groups = container.getElementsByTagName('div');
+          for (var i = 0; i &lt; groups.length; i++) {
+            var g = groups[i];
+            if (hasClass(g, 'prd-source-group')) {
+              g.style.display = hasClass(g, 'prd-source-' + value) ? '' : 'none';
+            }
+          }
+        }
+        select.onchange = update;
+        update();
+      })();
+    </script>
   </f:section>
 
   <!-- Pipeline Configuration -->

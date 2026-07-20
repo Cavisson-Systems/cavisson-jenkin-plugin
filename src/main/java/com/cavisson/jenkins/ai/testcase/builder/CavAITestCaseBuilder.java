@@ -611,7 +611,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
         @NonNull @Override
-        public String getDisplayName() { return "Cavisson AI Test Case Generation"; }
+        public String getDisplayName() { return "Cavisson - AI Test Case Generation"; }
 
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> jobType) { return true; }

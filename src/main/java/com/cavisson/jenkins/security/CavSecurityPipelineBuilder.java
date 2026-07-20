@@ -1116,14 +1116,14 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "CavSecurityPlugin";
+            return "Cavisson - Security Plugin";
         }
 
         public ListBoxModel doFillScanTypeItems() {
             ListBoxModel m = new ListBoxModel();
-            m.add("SAST (Static / SonarQube)", "SAST");
-            m.add("SCA (Container / Trivy)", "SCA");
-            m.add("DAST (Dynamic / ZAP)", "DAST");
+            m.add("SAST", "SAST");
+            m.add("SCA", "SCA");
+            m.add("DAST", "DAST");
             return m;
         }
 
