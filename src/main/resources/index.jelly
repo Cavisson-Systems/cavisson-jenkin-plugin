@@ -1,8 +1,29 @@
 <?jelly escape-by-default='true'?>
 <div>
-  Cavisson CI/CD task plugin for Jenkins. Adds Cavisson execution tasks as build steps and
-  Pipeline steps, starting with "Cavisson - Run Test" (triggers a Cavisson TestSuite or Load
-  Test scenario and waits for completion). Connection to the Cavisson DashboardServer is
-  configured directly on each task (base URL + API token), or by referencing an existing
-  Cavisson Service Connection credential if the cav-security-pipeline plugin is also installed.
+  <p>
+    Cavisson CI/CD task plugin for Jenkins. Adds Cavisson execution tasks as build steps and
+    Pipeline steps, merging what used to be several separate Jenkins plugins into one:
+  </p>
+  <ul>
+    <li><b>CavSecurityPlugin</b>: runs a selected Cavisson security scan - Static/SonarQube
+    (Cavisson Code Analyzer), Container/Trivy, or Dynamic/ZAP.</li>
+    <li><b>Cavisson AI Test Case Generation</b>: integrates with the Cavisson Agentic AI
+    backend to generate test cases from PRDs or other source artifacts, and optionally
+    publishes the generated user stories to Jira or Azure DevOps.</li>
+    <li><b>Cavisson - Create Functional Test Suite</b>: creates a test suite via the
+    Scenario Service REST API.</li>
+    <li><b>Cavisson - Start Code Coverage</b> / <b>Cavisson - Stop Code Coverage</b>: starts
+    and stops code coverage collection, publishing a detailed report.</li>
+    <li><b>Cavisson - Run Test</b>: triggers a Cavisson TestSuite or Load Test scenario and
+    waits for completion.</li>
+    <li><b>Cavisson - Analyse Test Failure</b>: AI-powered root cause analysis for failing
+    test runs using the Cav Codefix Agent.</li>
+    <li><b>Cavisson Quality Gate</b> (<code>cavQualityGate</code>): evaluates one combined
+    Cavisson quality gate for a build, covering whatever Static/Container/Dynamic security
+    scans already ran under the same job/build.</li>
+  </ul>
+  <p>
+    Connection to the Cavisson DashboardServer is configured directly on each task (base URL
+    + API token), or by referencing an existing Cavisson Service Connection credential.
+  </p>
 </div>

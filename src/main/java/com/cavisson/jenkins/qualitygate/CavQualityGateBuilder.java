@@ -194,7 +194,7 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "Cavisson Quality Gate";
+            return "Cavisson - Quality Gate";
         }
 
         public ListBoxModel doFillConnectionModeItems() {

@@ -404,7 +404,7 @@ public class CavSecurityPipelineStep extends Step {
         @Nonnull
         @Override
         public String getDisplayName() {
-            return "CavSecurityPlugin";
+            return "Cavisson - Security Plugin";
         }
 
         @Override
