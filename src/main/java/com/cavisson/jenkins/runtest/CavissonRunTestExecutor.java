@@ -88,13 +88,13 @@ final class CavissonRunTestExecutor {
 
         String targetLabel = "T".equals(mode) ? "Test Suite" : "Test Case";
 
-        log.info("========== Cavisson Run Test ==========");
-        log.info("Service Base URL : " + baseUrl);
-        log.info("Test Type        : " + resolvedTestType);
-        log.info("Project          : " + resolvedProject);
-        log.info("Sub Project      : " + resolvedSubProject);
-        log.info(String.format("%-17s: %s", targetLabel, targetScenario));
-        log.info("========================================");
+        log.debug("========== Cavisson Run Test ==========");
+        log.debug("Service Base URL : " + baseUrl);
+        log.debug("Test Type        : " + resolvedTestType);
+        log.debug("Project          : " + resolvedProject);
+        log.debug("Sub Project      : " + resolvedSubProject);
+        log.debug(String.format("%-17s: %s", targetLabel, targetScenario));
+        log.debug("========================================");
 
         String apiBase = baseUrl.replaceAll("/+$", "") + API_BASE_PATH;
 
@@ -203,7 +203,7 @@ final class CavissonRunTestExecutor {
                 progress.append('.');
 
                 if (elapsedMinutes % 5 == 0) {
-                    log.info(String.format("Test is still Running %s (%d min elapsed)", progress, elapsedMinutes));
+                    log.debug(String.format("Test is still Running %s (%d min elapsed)", progress, elapsedMinutes));
                     // Start a fresh progress line for the next 5 minutes.
                     progress.setLength(0);
                 }

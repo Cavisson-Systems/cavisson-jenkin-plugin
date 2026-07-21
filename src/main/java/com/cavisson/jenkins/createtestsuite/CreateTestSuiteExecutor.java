@@ -170,8 +170,8 @@ final class CreateTestSuiteExecutor {
             }
         }
 
-        log.info("   Testsuite created with " + AnsiColors.bold(String.valueOf(allTestcases.size())) + " test cases, ");
-        log.info("   Test Case Selected based on source code change- ");
+        log.info("   Test Suite created with " + AnsiColors.bold(String.valueOf(allTestcases.size())) + " test cases, ");
+        log.info("   Test Case selected based on source code changes - ");
         for (int i = 0; i < details.length(); i++) {
             JSONObject detail = details.getJSONObject(i);
             String file = detail.optString("file", "");
