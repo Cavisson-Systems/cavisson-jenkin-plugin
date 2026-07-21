@@ -1,11 +1,10 @@
 package com.cavisson.jenkins.ai.testcase.source;
 
-import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.FilePath;
 import hudson.model.Run;
 
 import java.io.IOException;
-import java.io.PrintStream;
 
 /**
  * Source provider for JIRA-based test case generation.
@@ -51,11 +50,11 @@ public final class JiraSource {
     /**
      * Validates JIRA configuration and returns a JiraSourceRequest.
      *
-     * @param log Jenkins console PrintStream
+     * @param log shared build logger
      * @return    JiraSourceRequest carrying epicPattern and integrationName
      * @throws IOException if epicPattern or integrationName is blank
      */
-    public JiraSourceRequest buildRequest(PrintStream log) throws IOException {
+    public JiraSourceRequest buildRequest(CavLogger log) throws IOException {
         if (epicPattern.isEmpty()) {
             throw new IOException(
                     "JIRA Epic Pattern is required when Source Type is JIRA. "
@@ -67,10 +66,10 @@ public final class JiraSource {
                     + "Example: JIRA_CONFIG_TEST");
         }
 
-        PluginLogger.logInfo(log, "PRD source: JIRA");
-        PluginLogger.logInfo(log, "  Epic Pattern     : " + epicPattern);
-        PluginLogger.logInfo(log, "  Integration Name : " + integrationName);
-        PluginLogger.logInfo(log, "The AI server will fetch stories from JIRA epic: " + epicPattern);
+        // Source Type / Epic Pattern / Integration Name are already printed once by
+        // CavAITestCaseBuilder.perform() before this is called - do not duplicate them here.
+        log.debug("PRD source: JIRA  Epic Pattern: " + epicPattern
+                + "  Integration Name: " + integrationName);
 
         return new JiraSourceRequest(epicPattern, integrationName);
     }

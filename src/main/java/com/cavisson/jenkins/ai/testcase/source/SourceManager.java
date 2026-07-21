@@ -1,11 +1,11 @@
 package com.cavisson.jenkins.ai.testcase.source;
 
 import com.cavisson.jenkins.connection.CavServiceConnection;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.FilePath;
 import hudson.model.Run;
 
 import java.io.IOException;
-import java.io.PrintStream;
 
 /**
  * Decides which PRD acquisition strategy to use and executes it.
@@ -62,7 +62,7 @@ public final class SourceManager {
      * @param prdFileFallback    Legacy workspace path fallback (prdSourceType=LOCAL)
      * @param run                current Jenkins build
      * @param workspace          Jenkins workspace
-     * @param log                console output
+     * @param log                shared build logger
      * @return                   FilePath of the acquired PRD file, or null for JIRA
      */
     public static FilePath acquire(String                 prdSourceType,
@@ -74,7 +74,30 @@ public final class SourceManager {
                                    String                 prdFileFallback,
                                    Run<?, ?>              run,
                                    FilePath               workspace,
-                                   PrintStream            log)
+                                   CavLogger              log)
+            throws IOException, InterruptedException {
+        return acquire(prdSourceType, credential, gitRepoUrl, gitBranch, gitPrdPath,
+                null, null, prdParameterName, prdFileFallback, run, workspace, log);
+    }
+
+    /**
+     * Same as {@link #acquire(String, CavServiceConnection, String, String, String, String,
+     * String, Run, FilePath, CavLogger)}, with Git username/PAT supplied by the caller (the AI
+     * Test Case build step's own Execution Source fields) rather than only the Service
+     * Connection's - see {@link GitSource}'s override constructor.
+     */
+    public static FilePath acquire(String                 prdSourceType,
+                                   CavServiceConnection credential,
+                                   String                 gitRepoUrl,
+                                   String                 gitBranch,
+                                   String                 gitPrdPath,
+                                   String                 gitUsernameOverride,
+                                   String                 gitCredentialOverride,
+                                   String                 prdParameterName,
+                                   String                 prdFileFallback,
+                                   Run<?, ?>              run,
+                                   FilePath               workspace,
+                                   CavLogger              log)
             throws IOException, InterruptedException {
 
         // JIRA source: no file acquisition needed
@@ -89,7 +112,8 @@ public final class SourceManager {
                 && gitRepoUrl != null
                 && !gitRepoUrl.trim().isEmpty()) {
 
-            source = new GitSource(gitRepoUrl, gitBranch, gitPrdPath, credential);
+            source = new GitSource(gitRepoUrl, gitBranch, gitPrdPath,
+                    gitUsernameOverride, gitCredentialOverride, credential);
 
         } else {
             // Default: LOCAL file upload or workspace file
@@ -105,13 +129,13 @@ public final class SourceManager {
      *
      * @param epicPattern     JIRA epic key or pattern, e.g. "EM-527"
      * @param integrationName Saved JIRA integration name in Cavisson, e.g. "JIRA_CONFIG_TEST"
-     * @param log             Jenkins console PrintStream
+     * @param log             shared build logger
      * @return                JiraSourceRequest with validated fields
      * @throws IOException    if epicPattern or integrationName is blank
      */
     public static JiraSourceRequest buildJiraRequest(String      epicPattern,
                                                      String      integrationName,
-                                                     PrintStream log)
+                                                     CavLogger   log)
             throws IOException {
         return new JiraSource(epicPattern, integrationName).buildRequest(log);
     }

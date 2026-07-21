@@ -10,6 +10,8 @@ import com.cavisson.jenkins.ai.testcase.util.CredentialUtil;
 import com.cavisson.jenkins.ai.testcase.util.PayloadBuilder;
 import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
 import com.cavisson.jenkins.connection.CavServiceConnection;
+import com.cavisson.jenkins.log.CavLogger;
+import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -25,6 +27,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.Secret;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
@@ -36,11 +39,12 @@ import org.kohsuke.stapler.verb.POST;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -139,6 +143,12 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     private String prdParameterName = "PRD_FILE_UPLOAD";
     private String prdFile          = "";
 
+    // -- Git credentials (per-job Execution Source fields; override the Service Connection's) --
+
+    private String gitProvider   = "";
+    private String gitUsername   = "";
+    private Secret gitCredential;
+
     // -- JIRA source fields (NEW in v9) ----------------------------------------
 
     /**
@@ -210,6 +220,12 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     { this.prdParameterName = (v != null && !v.trim().isEmpty()) ? v.trim() : "PRD_FILE_UPLOAD"; }
     @DataBoundSetter public void setPrdFile(String v)
     { this.prdFile = v != null ? v.trim() : ""; }
+    @DataBoundSetter public void setGitProvider(String v)
+    { this.gitProvider = v != null ? v.trim() : ""; }
+    @DataBoundSetter public void setGitUsername(String v)
+    { this.gitUsername = v != null ? v.trim() : ""; }
+    @DataBoundSetter public void setGitCredential(Secret v)
+    { this.gitCredential = v; }
     @DataBoundSetter public void setJiraEpicPattern(String v)
     { this.jiraEpicPattern = v != null ? v.trim() : ""; }
     @DataBoundSetter public void setJiraIntegrationName(String v)
@@ -265,6 +281,11 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     public String       getGitPrdPath()           { return gitPrdPath; }
     public String       getPrdParameterName()     { return prdParameterName; }
     public String       getPrdFile()              { return prdFile; }
+    public String       getGitProvider()          { return gitProvider; }
+    public String       getGitUsername()          { return gitUsername; }
+    public Secret        getGitCredential()        { return gitCredential; }
+    /** Plaintext PAT/SSH key, for passing into GitSource - never logged. */
+    public String        getGitCredentialPlain()   { return gitCredential == null ? "" : gitCredential.getPlainText(); }
     public String       getJiraEpicPattern()      { return jiraEpicPattern; }
     public String       getJiraIntegrationName()  { return jiraIntegrationName; }
     public String       getSourceType()           { return sourceType; }
@@ -298,17 +319,15 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                         @NonNull TaskListener listener)
             throws InterruptedException, IOException {
 
-        PrintStream log       = listener.getLogger();
+        CavLogger   log       = new CavLogger(listener, env);
         long        startTime = System.currentTimeMillis();
-
-        PluginLogger.configure(env.get("LOG_LEVEL", null));
 
         // Resolve credential
         CavServiceConnection credential;
         try {
             credential = CredentialUtil.findById(cavServiceConnectionId, run.getParent());
         } catch (IllegalArgumentException e) {
-            PluginLogger.logError(log, e.getMessage());
+            log.error(e.getMessage());
             throw new AbortException(e.getMessage());
         }
 
@@ -316,22 +335,23 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         String cavToken  = credential.getApiToken().getPlainText();
         String buildTag  = env.get("BUILD_TAG",    "jenkins-" + run.getId());
         String jobName   = env.get("JOB_NAME",     "unknown-job");
-        String buildNo   = env.get("BUILD_NUMBER", String.valueOf(run.getNumber()));
 
-        PluginLogger.logInfo(log, "Cavisson AI Test Case Generation");
-        PluginLogger.logInfo(log, "Job: " + jobName + "  Build: #" + buildNo
-                + "  Server: " + serverUrl);
-        PluginLogger.logInfo(log, "Idempotency Key: " + buildTag);
-        PluginLogger.logDebug(log, "PRD Source Type: " + prdSourceType);
+        log.field("Job", jobName);
+        log.field("Server", serverUrl);
+        log.field("Source Type", sourceType);
+        log.field("Epic Pattern", jiraEpicPattern);
+        log.field("Integration Name", jiraIntegrationName);
+        log.debug("Idempotency Key: " + buildTag);
+        log.debug("PRD Source Type: " + prdSourceType);
 
         // -- Validate ----------------------------------------------------------
         try {
             validateParameters(credential);
         } catch (IllegalArgumentException e) {
-            PluginLogger.logError(log, "Validation failed: " + e.getMessage());
+            log.error("Validation failed: " + e.getMessage());
             throw new AbortException("Validation failed: " + e.getMessage());
         }
-        PluginLogger.logDebug(log, "Validation passed");
+        log.debug("Validation passed");
 
         // -- Resolve userName dynamically from Cav Token -----------------------
         // Lookup failure is non-fatal: falls back to the default userName
@@ -342,10 +362,10 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         try {
             userName = new UserNameService().fetchUserName(serverUrl, cavToken, log);
         } catch (CavAIApiException e) {
-            PluginLogger.logWarn(log, "Unable to retrieve username from Cav Token (" + e.getMessage() + ").");
-            PluginLogger.logWarn(log, "Falling back to default userName: cavisson.");
+            log.warn("Unable to retrieve username from Cav Token (" + e.getMessage() + ").");
+            log.warn("Falling back to default userName: cavisson.");
             userName = "cavisson";
-            PluginLogger.logInfo(log, "Continuing pipeline execution...");
+            log.info("Continuing pipeline execution...");
         }
 
         CavAIRestClient client = new CavAIRestClient();
@@ -362,15 +382,16 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                 jiraRequest = SourceManager.buildJiraRequest(
                         jiraEpicPattern, jiraIntegrationName, log);
             } catch (IOException e) {
-                PluginLogger.logError(log, "JIRA source error: " + e.getMessage());
+                log.error("JIRA source error: " + e.getMessage());
                 throw new AbortException("JIRA source error: " + e.getMessage());
             }
 
-            // Build JIRA-specific payload (no fileRef, no publishUserStories)
+            // Epic Integration shows no source-specific fields - skips file acquisition and
+            // upload entirely, same as the original implementation.
             try {
                 payload = PayloadBuilder.buildJira(this, credential, jiraRequest, buildTag, userName);
             } catch (Exception e) {
-                PluginLogger.logError(log, "Payload error: " + e.getMessage());
+                log.error("Payload error: " + e.getMessage());
                 throw new AbortException("Payload error: " + e.getMessage());
             }
 
@@ -385,17 +406,18 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                 resolvedFilePath = SourceManager.acquire(
                         prdSourceType, credential,
                         gitRepoUrl, gitBranch, gitPrdPath,
+                        gitUsername, getGitCredentialPlain(),
                         prdParameterName, prdFile,
                         run, workspace, log);
             } catch (IOException e) {
-                PluginLogger.logError(log, "PRD acquisition failed: " + e.getMessage());
+                log.error("PRD acquisition failed: " + e.getMessage());
                 throw new AbortException("PRD acquisition failed: " + e.getMessage());
             }
 
             // Upload PRD to Cavisson server
             File localFile = new File(resolvedFilePath.getRemote());
-            PluginLogger.logInfo(log, "Uploading PRD: " + localFile.getName());
-            PluginLogger.logDebug(log, "Upload destination: " + getUploadDestination());
+            log.info("Uploading PRD: " + localFile.getName());
+            log.debug("Upload destination: " + getUploadDestination());
 
             String uploadedFilename;
             try {
@@ -403,16 +425,16 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                         serverUrl, cavToken, localFile, getUploadDestination(), log);
             } catch (CavAIApiException e) {
                 LOGGER.log(Level.SEVERE, "Upload failed", e);
-                PluginLogger.logError(log, "Upload failed: " + e.getMessage());
+                log.error("Upload failed: " + e.getMessage());
                 throw new AbortException("PRD upload failed: " + e.getMessage());
             }
-            PluginLogger.logInfo(log, "Upload Successful  -  " + uploadedFilename);
+            log.info("Upload Successful  -  " + uploadedFilename);
 
             // Build standard payload with fileRef
             try {
                 payload = PayloadBuilder.build(this, credential, uploadedFilename, buildTag, userName);
             } catch (Exception e) {
-                PluginLogger.logError(log, "Payload error: " + e.getMessage());
+                log.error("Payload error: " + e.getMessage());
                 throw new AbortException("Payload error: " + e.getMessage());
             }
         }
@@ -422,8 +444,8 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         // Identical for all three source types
         // ======================================================================
 
-        PluginLogger.logInfo(log, "Triggering AI Pipeline");
-        PluginLogger.logDebug(log, "Test Suite: " + testSuiteName
+        log.debug("Triggering AI Pipeline...");
+        log.debug("Test Suite: " + testSuiteName
                 + "  Test Cases: " + numberOfTestCases
                 + "  Project: " + project + "/" + subProject);
 
@@ -432,10 +454,19 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             pipelineId = client.triggerPipeline(serverUrl, cavToken, payload, log);
         } catch (CavAIApiException e) {
             LOGGER.log(Level.SEVERE, "Trigger failed", e);
-            PluginLogger.logError(log, "Trigger failed: " + e.getMessage());
+            log.error("Trigger failed: " + e.getMessage());
             throw new AbortException("Trigger failed: " + e.getMessage());
         }
-        PluginLogger.logInfo(log, "Pipeline Triggered  -  Pipeline ID: " + pipelineId);
+
+        // Export the Pipeline ID as an env var too (existing mechanism, reused unchanged) so
+        // later Pipeline/Freestyle steps can reference ${CAV_AI_PIPELINE_ID}.
+        Map<String, String> envVars = new LinkedHashMap<>();
+        envVars.put("CAV_AI_PIPELINE_ID", pipelineId);
+        CavissonEnvironmentPublisher.publish(run, envVars);
+        
+        log.field("Pipeline ID", pipelineId);
+        log.info("Pipeline Triggered Successfully...");
+        
 
         Set<String> printedLines = new LinkedHashSet<>();
         String      progressJson = null;
@@ -449,16 +480,16 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                         jf(failJson, "errorStage"),
                         jf(failJson, "error"));
             } catch (CavAIApiException ex) {
-                PluginLogger.logWarn(log, "Could not download progress: " + ex.getMessage());
+                log.warn("Could not download progress: " + ex.getMessage());
             }
             throw ae;
         } catch (InterruptedException ie) {
             PluginLogger.printAbort(log, pipelineId);
             try {
                 client.abortPipeline(serverUrl, pipelineId, log);
-                PluginLogger.logInfo(log, "Abort signal sent to backend");
+                log.info("Abort signal sent to backend");
             } catch (CavAIApiException abortEx) {
-                PluginLogger.logWarn(log, "Abort failed: " + abortEx.getMessage());
+                log.warn("Abort failed: " + abortEx.getMessage());
             }
             Thread.currentThread().interrupt();
             throw ie;
@@ -466,24 +497,28 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
         long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
 
-        PluginLogger.printFinalSummary(log, pipelineId, project, subProject,
+        PluginLogger.printFinalSummary(log, project, subProject,
                 SourceManager.JIRA.equalsIgnoreCase(prdSourceType) ? "JIRA" : sourceType,
+                progressJson != null ? jf(progressJson, "testsuiteName")   : testSuiteName,
+                progressJson != null ? jf(progressJson, "testsuiteUrl")    : "",
                 progressJson != null ? jf(progressJson, "storyCount")      : "0",
                 progressJson != null ? jf(progressJson, "testcaseCount")   : "0",
                 progressJson != null ? jf(progressJson, "publishedEpicKey"): "",
                 progressJson != null ? jf(progressJson, "batchId")         : "",
-                progressJson != null ? jf(progressJson, "testsuiteName")   : testSuiteName,
                 durationSeconds);
     }
 
-    // -- Polling loop (unchanged) ----------------------------------------------
+    // -- Polling loop -----------------------------------------------------------
 
     private String pollAndStream(CavAIRestClient client,
                                  String          serverUrl,
                                  String          pipelineId,
-                                 PrintStream     log,
+                                 CavLogger       log,
                                  Set<String>     printedLines)
             throws AbortException, InterruptedException {
+
+        int           elapsedPolls = 0;
+        StringBuilder progress     = new StringBuilder();
 
         while (true) {
             if (Thread.currentThread().isInterrupted())
@@ -493,7 +528,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                 String events = client.downloadEvents(serverUrl, pipelineId, log);
                 PluginLogger.streamNewEvents(log, events, printedLines);
             } catch (CavAIApiException e) {
-                PluginLogger.logDebug(log, "Events fetch error (will retry): " + e.getMessage());
+                log.debug("Events fetch error (will retry): " + e.getMessage());
             }
 
             CavAIRestClient.StatusResponse status;
@@ -501,12 +536,12 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                 status = client.getPipelineStatus(serverUrl, pipelineId, log);
             } catch (CavAIApiException e) {
                 LOGGER.log(Level.WARNING, "Poll error (will retry)", e);
-                PluginLogger.logWarn(log, "Poll error: " + e.getMessage() + "  -  retrying in 10s");
+                log.warn("Poll error: " + e.getMessage() + "  -  retrying in 10s");
                 Thread.sleep(POLL_INTERVAL_MS);
                 continue;
             }
 
-            PluginLogger.logDebug(log, "Poll: stage=" + status.getCurrentStage()
+            log.debug("Poll: stage=" + status.getCurrentStage()
                     + " state=" + status.getState().name());
 
             PipelineState state = status.getState();
@@ -516,13 +551,13 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                     PluginLogger.streamNewEvents(log,
                             client.downloadEvents(serverUrl, pipelineId, log), printedLines);
                 } catch (CavAIApiException e) {
-                    PluginLogger.logDebug(log, "Final events error: " + e.getMessage());
+                    log.debug("Final events error: " + e.getMessage());
                 }
                 String progressJson = null;
                 try {
                     progressJson = client.downloadProgress(serverUrl, pipelineId, log);
                 } catch (CavAIApiException e) {
-                    PluginLogger.logWarn(log, "Could not fetch progress: " + e.getMessage());
+                    log.warn("Could not fetch progress: " + e.getMessage());
                 }
                 return progressJson;
             }
@@ -532,13 +567,25 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                     PluginLogger.streamNewEvents(log,
                             client.downloadEvents(serverUrl, pipelineId, log), printedLines);
                 } catch (CavAIApiException e) {
-                    PluginLogger.logDebug(log, "Final events error: " + e.getMessage());
+                    log.debug("Final events error: " + e.getMessage());
                 }
                 String reason = status.getFailureReason();
-                PluginLogger.logError(log, "Pipeline " + state.name()
+                log.error("Pipeline " + state.name()
                         + (reason.isEmpty() ? "" : ": " + reason));
                 throw new AbortException("Pipeline finished with state: " + state.name()
                         + (reason.isEmpty() ? "" : ". Reason: " + reason));
+            }
+
+            // Still running - narrate every 5 minutes so a long-running pipeline doesn't look
+            // stuck in the Jenkins console, same cadence/style as CavissonRunTestExecutor's
+            // "Test is still Running" progress narration.
+            elapsedPolls++;
+            progress.append('.');
+            long elapsedSeconds = elapsedPolls * (POLL_INTERVAL_MS / 1000);
+            if (elapsedSeconds % 300 == 0) {
+                log.info(String.format("AI Test Case Generation is still running %s (%d min elapsed)",
+                        progress, elapsedSeconds / 60));
+                progress.setLength(0);
             }
 
             Thread.sleep(POLL_INTERVAL_MS);
@@ -696,18 +743,25 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
         public ListBoxModel doFillPrdSourceTypeItems() {
             ListBoxModel m = new ListBoxModel();
-            m.add("Local File Upload (default)", SourceManager.LOCAL);
+            m.add("Local File Upload (Default)", SourceManager.LOCAL);
             m.add("Git Repository",              SourceManager.GIT);
-            m.add("JIRA",                        SourceManager.JIRA);
+            m.add("Epic Integration",            SourceManager.JIRA);
             return m;
         }
 
         public ListBoxModel doFillSourceTypeItems() {
             ListBoxModel m = new ListBoxModel();
-            m.add("PRD",          "PRD");
-            m.add("GHERKIN",      "GHERKIN");
             m.add("JIRA",         "JIRA");
             m.add("AZURE_DEVOPS", "AZURE_DEVOPS");
+            return m;
+        }
+
+        public ListBoxModel doFillGitProviderItems() {
+            ListBoxModel m = new ListBoxModel();
+            m.add("-- Select (optional) --", "");
+            m.add("GitHub",       "GITHUB");
+            m.add("GitLab",       "GITLAB");
+            m.add("Azure Repos",  "AZURE_REPOS");
             return m;
         }
 

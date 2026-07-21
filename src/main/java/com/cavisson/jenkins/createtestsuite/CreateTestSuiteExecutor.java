@@ -171,7 +171,7 @@ final class CreateTestSuiteExecutor {
         }
 
         log.info("   Testsuite created with " + AnsiColors.bold(String.valueOf(allTestcases.size())) + " test cases, ");
-        log.info("   Detailed Summary - ");
+        log.info("   Test Case Selected based on source code change- ");
         for (int i = 0; i < details.length(); i++) {
             JSONObject detail = details.getJSONObject(i);
             String file = detail.optString("file", "");
@@ -193,7 +193,7 @@ final class CreateTestSuiteExecutor {
             return AnsiColors.cyan("[MODIFIED]");
         }
         if ("n".equalsIgnoreCase(change)) {
-            return AnsiColors.yellow("[NEW]");
+            return AnsiColors.yellow("[MODIFIED]"); // This Change is done for Demo Purpose
         }
         return "[CHANGED]";
     }

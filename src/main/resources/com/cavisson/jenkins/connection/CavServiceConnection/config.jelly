@@ -23,54 +23,9 @@
     <f:password checkMethod="post"/>
   </f:entry>
 
-  <!-- The fields below are used only by the AI Test Case Generation task; every other task
-       (Run Test, Create Test Suite, Analyse Test Failure, Start/Stop Code Coverage, Security
-       Scan, Quality Gate) leaves them blank. -->
-
-  <f:advanced title="AI Test Case Generation (optional)">
-
-    <f:entry title="Publish User Stories"
-             field="publishUserStories"
-             description="If enabled, generated user stories are published to an external tracker. The three fields below become mandatory.">
-      <f:checkbox/>
-    </f:entry>
-
-    <f:entry title="Integration Name"
-             field="integrationName"
-             description="Name of the saved integration configuration in Cavisson. Required when Publish User Stories is enabled.">
-      <f:textbox checkMethod="post"/>
-    </f:entry>
-
-    <f:entry title="Publish Tracker Type"
-             field="publishTrackerType"
-             description="Target issue tracker type. Required when Publish User Stories is enabled.">
-      <f:select checkMethod="post"/>
-    </f:entry>
-
-    <f:entry title="Publish Epic Name"
-             field="publishEpicName"
-             description="Name of the Epic in the target tracker. Required when Publish User Stories is enabled.">
-      <f:textbox checkMethod="post"/>
-    </f:entry>
-
-    <f:entry title="Git Provider"
-             field="gitProvider"
-             description="Optional. Git hosting provider, used to fetch a PRD file from a repository instead of uploading it manually. Used for context and URL hints only.">
-      <f:select/>
-    </f:entry>
-
-    <f:entry title="Git Username"
-             field="gitUsername"
-             description="Optional. Your Git username (GitHub username, GitLab username, or Azure DevOps username). Required only for private repositories.">
-      <f:textbox placeholder="Leave empty for public repositories" checkMethod="post"/>
-    </f:entry>
-
-    <f:entry title="Git PAT or SSH Key"
-             field="gitCredential"
-             description="Optional. Personal Access Token (PAT) for HTTPS authentication, or SSH private key content for SSH authentication. Required only for private repositories. Stored securely and never logged.">
-      <f:password placeholder="Leave empty for public repositories"/>
-    </f:entry>
-
-  </f:advanced>
+  <!-- publishUserStories/integrationName/publishTrackerType/publishEpicName/gitProvider/
+       gitUsername/gitCredential remain on the Java credential class for backward compatibility
+       with existing stored credentials, but are no longer exposed here - Execution Source /
+       Git / Epic fields now live on the AI Test Case Generation build step itself. -->
 
 </j:jelly>

@@ -1,14 +1,13 @@
 package com.cavisson.jenkins.ai.testcase.source;
 
 import com.cavisson.jenkins.connection.CavServiceConnection;
-import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.FilePath;
 import hudson.model.Run;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
 
 /**
  * Acquires the PRD file by cloning a Git repository.
@@ -43,6 +42,8 @@ public class GitSource implements PrdSource {
     private final String                 repoUrl;
     private final String                 branch;
     private final String                 prdFilePath;
+    private final String                 gitUsernameOverride;
+    private final String                 gitCredentialOverride;
     private final CavServiceConnection credential;
 
     /**
@@ -58,16 +59,34 @@ public class GitSource implements PrdSource {
                      String branch,
                      String prdFilePath,
                      CavServiceConnection credential) {
-        this.repoUrl     = repoUrl;
-        this.branch      = branch != null && !branch.isEmpty() ? branch : "main";
-        this.prdFilePath = prdFilePath;
-        this.credential  = credential;
+        this(repoUrl, branch, prdFilePath, null, null, credential);
+    }
+
+    /**
+     * Same as the 4-arg constructor, but lets the caller supply Git username/PAT directly
+     * (e.g. from the AI Test Case build step's own Execution Source fields) instead of the
+     * Service Connection's. When {@code gitUsernameOverride}/{@code gitCredentialOverride}
+     * are blank, falls back to {@code credential.getGitUsername()}/{@code getGitCredential()}
+     * exactly as before, for backward compatibility with existing jobs/credentials.
+     */
+    public GitSource(String repoUrl,
+                     String branch,
+                     String prdFilePath,
+                     String gitUsernameOverride,
+                     String gitCredentialOverride,
+                     CavServiceConnection credential) {
+        this.repoUrl               = repoUrl;
+        this.branch                = branch != null && !branch.isEmpty() ? branch : "main";
+        this.prdFilePath           = prdFilePath;
+        this.gitUsernameOverride   = gitUsernameOverride;
+        this.gitCredentialOverride = gitCredentialOverride;
+        this.credential            = credential;
     }
 
     @Override
     public FilePath acquire(Run<?, ?> run,
                             FilePath  workspace,
-                            PrintStream log)
+                            CavLogger log)
             throws IOException, InterruptedException {
 
         // Clone into a subdirectory so we don't pollute the workspace root
@@ -77,22 +96,21 @@ public class GitSource implements PrdSource {
         }
         cloneDir.mkdirs();
 
-        PluginLogger.logInfo(log, "PRD source: Git repository");
-        PluginLogger.logDebug(log, "Repository : " + repoUrl);
-        PluginLogger.logDebug(log, "Branch     : " + branch);
-        PluginLogger.logDebug(log, "PRD path   : " + prdFilePath);
+        log.info("PRD source: Git repository");
+        log.debug("Repository : " + repoUrl);
+        log.debug("Branch     : " + branch);
+        log.debug("PRD path   : " + prdFilePath);
 
         // -- Attempt 1: Anonymous clone (public repo) --------------------------
-        PluginLogger.logInfo(log, "Attempting anonymous clone...");
+        log.info("Attempting anonymous clone...");
         boolean cloned = tryClone(repoUrl, branch, cloneDir, log, false);
 
         // -- Attempt 2: Authenticated clone (private repo) ---------------------
         if (!cloned) {
-            PluginLogger.logInfo(log,
-                    "Anonymous clone failed - attempting authenticated clone...");
+            log.info("Anonymous clone failed - attempting authenticated clone...");
 
-            String gitUser = credential.getGitUsername();
-            String gitPat  = credential.getGitCredential();
+            String gitUser = notBlank(gitUsernameOverride) ? gitUsernameOverride : credential.getGitUsername();
+            String gitPat  = notBlank(gitCredentialOverride) ? gitCredentialOverride : credential.getGitCredential();
 
             if (gitUser == null || gitUser.trim().isEmpty()) {
                 throw new IOException(
@@ -116,7 +134,7 @@ public class GitSource implements PrdSource {
             }
         }
 
-        PluginLogger.logInfo(log, "Repository cloned successfully");
+        log.info("Repository cloned successfully");
 
         // -- Locate the PRD file -----------------------------------------------
         FilePath prd = cloneDir.child(prdFilePath);
@@ -128,8 +146,7 @@ public class GitSource implements PrdSource {
                     + "of " + repoUrl);
         }
 
-        PluginLogger.logInfo(log,
-                "PRD file located: " + prdFilePath
+        log.info("PRD file located: " + prdFilePath
                 + " (" + prd.length() + " bytes)");
 
         return prd;
@@ -148,7 +165,7 @@ public class GitSource implements PrdSource {
     private boolean tryClone(String url,
                               String branch,
                               FilePath targetDir,
-                              PrintStream log,
+                              CavLogger log,
                               boolean masked) {
 
         try {
@@ -176,17 +193,17 @@ public class GitSource implements PrdSource {
 
             // On failure, log output (masking credentials if present)
             if (masked) {
-                PluginLogger.logDebug(log, "Authenticated clone failed (credentials masked)");
+                log.debug("Authenticated clone failed (credentials masked)");
             } else {
                 String out = new String(output).trim();
                 if (!out.isEmpty()) {
-                    PluginLogger.logDebug(log, "Clone output: " + out);
+                    log.debug("Clone output: " + out);
                 }
             }
             return false;
 
         } catch (IOException | InterruptedException e) {
-            PluginLogger.logDebug(log, "Clone error: " + e.getMessage());
+            log.debug("Clone error: " + e.getMessage());
             return false;
         }
     }
@@ -207,6 +224,10 @@ public class GitSource implements PrdSource {
         }
         // For SSH URLs, git will use the SSH key from the agent - no modification needed
         return url;
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.trim().isEmpty();
     }
 
     private static String urlEncode(String s) {

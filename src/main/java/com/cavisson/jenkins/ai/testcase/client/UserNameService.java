@@ -2,11 +2,9 @@ package com.cavisson.jenkins.ai.testcase.client;
 
 import com.cavisson.jenkins.ai.testcase.exception.CavAIApiException;
 import com.cavisson.jenkins.ai.testcase.model.UserNameResponse;
-import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
+import com.cavisson.jenkins.log.CavLogger;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.PrintStream;
 
 /**
  * Resolves "userName" dynamically from the Cav Token stored in the Service
@@ -26,7 +24,7 @@ import java.io.PrintStream;
  *
  * {@code PayloadBuilder} never calls this service or performs REST calls
  * itself - {@code CavAITestCaseBuilder.perform()} calls
- * {@link #fetchUserName(String, String, PrintStream)} once, up front, and
+ * {@link #fetchUserName(String, String, CavLogger)} once, up front, and
  * passes the resolved value into {@code PayloadBuilder} as plain data.
  */
 public class UserNameService {
@@ -53,7 +51,7 @@ public class UserNameService {
      *
      * @param dashboardUrl Dashboard Server URL (from the Service Connection)
      * @param cavToken     Cav Token (from the Service Connection)
-     * @param log          Jenkins console PrintStream
+     * @param log          shared build logger
      * @return the resolved username - never null or blank. Either the real
      *         username from the Dashboard Server, or {@link #FALLBACK_USER_NAME}
      *         if the call succeeded but returned no username.
@@ -61,10 +59,10 @@ public class UserNameService {
      *                           cannot be parsed as JSON. The message is safe
      *                           to log directly - it never contains the Cav Token.
      */
-    public String fetchUserName(String dashboardUrl, String cavToken, PrintStream log)
+    public String fetchUserName(String dashboardUrl, String cavToken, CavLogger log)
             throws CavAIApiException {
 
-        PluginLogger.logInfo(log, "Fetching username using Cav Token...");
+        log.debug("Fetching username using Cav Token...");
 
         String body = restClient.fetchUserNameFromToken(dashboardUrl, cavToken, log);
 
@@ -78,14 +76,13 @@ public class UserNameService {
         if (!parsed.hasUserName()) {
             String detail = notBlank(parsed.getStatusMessage())
                     ? " (" + parsed.getStatusMessage() + ")" : "";
-            PluginLogger.logWarn(log, "Cav Token authentication succeeded but returned no username"
+            log.warn("Cav Token authentication succeeded but returned no username"
                     + detail + ". Falling back to \"" + FALLBACK_USER_NAME + "\".");
             return FALLBACK_USER_NAME;
         }
 
-        PluginLogger.logInfo(log, "Username fetched successfully.");
-        PluginLogger.logInfo(log, "Username : " + parsed.getUserName());
-        PluginLogger.logDebug(log, "Parsed Username : " + parsed.getUserName());
+        log.debug("Username fetched successfully.");
+        log.debug("Username : " + parsed.getUserName());
 
         return parsed.getUserName();
     }

@@ -1,11 +1,10 @@
 package com.cavisson.jenkins.ai.testcase.source;
 
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.FilePath;
 import hudson.model.Run;
-import hudson.model.TaskListener;
 
 import java.io.IOException;
-import java.io.PrintStream;
 
 /**
  * Contract for all PRD acquisition strategies.
@@ -25,13 +24,13 @@ public interface PrdSource {
      *
      * @param run        current Jenkins build
      * @param workspace  Jenkins workspace FilePath
-     * @param log        Jenkins console PrintStream
+     * @param log        shared build logger
      * @return           FilePath pointing to the PRD file ready for upload
      * @throws IOException          if the file cannot be located or copied
      * @throws InterruptedException if the build is aborted
      */
     FilePath acquire(Run<?, ?> run,
                      FilePath  workspace,
-                     PrintStream log)
+                     CavLogger log)
             throws IOException, InterruptedException;
 }

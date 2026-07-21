@@ -17,7 +17,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +27,7 @@ import java.security.cert.X509Certificate;
 import java.util.UUID;
 import java.util.logging.Logger;
 
-import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
+import com.cavisson.jenkins.log.CavLogger;
 
 /**
  * All HTTP communication with the Cavisson Agentic AI backend.
@@ -48,7 +47,7 @@ import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
  * official API specification.
  *
  * REST details (URL, payload, response body) are only logged in DEBUG mode
- * via PluginLogger.logRestCall(). In INFO mode all REST calls are silent
+ * via CavLogger.restCall(). In INFO mode all REST calls are silent
  * at the HTTP level - only their outcomes are logged by the caller.
  */
 public class CavAIRestClient {
@@ -144,9 +143,9 @@ public class CavAIRestClient {
 
     /**
      * Executes a GET and returns the response body.
-     * Logs the REST call details via PluginLogger (DEBUG mode only).
+     * Logs the REST call details via CavLogger (DEBUG mode only).
      */
-    private String executeGet(String url, String stepName, PrintStream log,
+    private String executeGet(String url, String stepName, CavLogger log,
                               boolean allowNon2xx) throws CavAIApiException {
 
         String logUrl = url.replaceAll("cavToken=[^&]*", "cavToken=***");
@@ -159,7 +158,7 @@ public class CavAIRestClient {
             connection.disconnect();
 
             // Only log REST details in DEBUG mode
-            PluginLogger.logRestCall(log, "GET " + stepName, logUrl, null, status, body);
+            if (log != null) log.restCall("GET " + stepName, logUrl, null, status, body);
 
             if (!allowNon2xx && (status < 200 || status >= 300)) {
                 throw new CavAIApiException(stepName + " failed. HTTP " + status, status);
@@ -178,7 +177,7 @@ public class CavAIRestClient {
      * Logs REST details in DEBUG mode only.
      */
     private String executePost(String url, String jsonBody, String stepName,
-                               PrintStream log, boolean allowNon2xx)
+                               CavLogger log, boolean allowNon2xx)
             throws CavAIApiException {
 
         String logUrl = url.replaceAll("cavToken=[^&]*", "cavToken=***");
@@ -200,7 +199,7 @@ public class CavAIRestClient {
             connection.disconnect();
 
             // Only log REST details in DEBUG mode
-            PluginLogger.logRestCall(log, "POST " + stepName, logUrl, jsonBody, status, body);
+            if (log != null) log.restCall("POST " + stepName, logUrl, jsonBody, status, body);
 
             if (!allowNon2xx && (status < 200 || status >= 300)) {
                 throw new CavAIApiException(stepName + " failed. HTTP " + status, status);
@@ -222,7 +221,7 @@ public class CavAIRestClient {
      */
     public String uploadFile(String serverBaseUrl, String cavToken,
                              File prdFile, String destination,
-                             PrintStream log) throws CavAIApiException {
+                             CavLogger log) throws CavAIApiException {
 
         String url    = serverBaseUrl + PATH_UPLOAD
                 + "?for=fileExplorer&destination=" + destination
@@ -262,7 +261,7 @@ public class CavAIRestClient {
             String body   = readResponseBody(connection, status);
             connection.disconnect();
 
-            PluginLogger.logRestCall(log, "POST Upload PRD File", logUrl, null, status, body);
+            if (log != null) log.restCall("POST Upload PRD File", logUrl, null, status, body);
 
             if (status < 200 || status >= 300) {
                 throw new CavAIApiException("Upload failed. HTTP " + status + " - " + body, status);
@@ -277,7 +276,7 @@ public class CavAIRestClient {
         }
     }
 
-    /** Backward-compatible overload without PrintStream. */
+    /** Backward-compatible overload without a logger. */
     public String uploadFile(String serverBaseUrl, String cavToken,
                              File prdFile, String destination) throws CavAIApiException {
         return uploadFile(serverBaseUrl, cavToken, prdFile, destination, null);
@@ -304,7 +303,7 @@ public class CavAIRestClient {
     // -- Step 2 - Trigger pipeline ---------------------------------------------
 
     public String triggerPipeline(String serverBaseUrl, String cavToken,
-                                  String jsonPayload, PrintStream log)
+                                  String jsonPayload, CavLogger log)
             throws CavAIApiException {
         String body = executePost(serverBaseUrl + PATH_RUN, jsonPayload,
                 "Trigger AI Pipeline", log, false);
@@ -339,7 +338,7 @@ public class CavAIRestClient {
 
     public StatusResponse getPipelineStatus(String serverBaseUrl,
                                             String pipelineId,
-                                            PrintStream log) throws CavAIApiException {
+                                            CavLogger log) throws CavAIApiException {
         String body = executeGet(serverBaseUrl + PATH_STATUS + pipelineId,
                 "Poll Status", log, false);
         return parseStatusResponse(body);
@@ -365,7 +364,7 @@ public class CavAIRestClient {
     // -- Step 4 - Download progress --------------------------------------------
 
     public String downloadProgress(String serverBaseUrl, String pipelineId,
-                                   PrintStream log) throws CavAIApiException {
+                                   CavLogger log) throws CavAIApiException {
         return executeGet(serverBaseUrl + PATH_PROGRESS + pipelineId,
                 "Download Progress", log, false);
     }
@@ -373,7 +372,7 @@ public class CavAIRestClient {
     // -- Step 5 - Download events ----------------------------------------------
 
     public String downloadEvents(String serverBaseUrl, String pipelineId,
-                                 PrintStream log) throws CavAIApiException {
+                                 CavLogger log) throws CavAIApiException {
         return executeGet(serverBaseUrl + PATH_PROGRESS + pipelineId + "?format=events",
                 "Download Events", log, false);
     }
@@ -381,7 +380,7 @@ public class CavAIRestClient {
     // -- Step 6 - Download generation log -------------------------------------
 
     public String downloadGenerationLog(String serverBaseUrl, String pipelineId,
-                                        PrintStream log) throws CavAIApiException {
+                                        CavLogger log) throws CavAIApiException {
         return executeGet(serverBaseUrl + PATH_PROGRESS + pipelineId
                 + "?format=log&stage=generate",
                 "Download Generation Log", log, false);
@@ -399,22 +398,22 @@ public class CavAIRestClient {
      * REST call in this client (via {@link #executeGet}).
      */
     public String fetchUserNameFromToken(String serverBaseUrl, String cavToken,
-                                         PrintStream log) throws CavAIApiException {
+                                         CavLogger log) throws CavAIApiException {
         String url       = serverBaseUrl + PATH_GET_USERNAME + "?cavToken=" + cavToken;
         String maskedUrl = url.replaceAll("cavToken=[^&]*", "cavToken=***");
 
         // -- DEBUG-only diagnostics for the username-fetch call ----------------
-        PluginLogger.logDebug(log, "[UserNameFetch] Dashboard URL   : " + serverBaseUrl);
-        PluginLogger.logDebug(log, "[UserNameFetch] Endpoint        : " + maskedUrl);
-        PluginLogger.logDebug(log, "[UserNameFetch] HTTP Method     : GET");
-        PluginLogger.logDebug(log, "[UserNameFetch] Headers         : "
+        log.debug("[UserNameFetch] Dashboard URL   : " + serverBaseUrl);
+        log.debug("[UserNameFetch] Endpoint        : " + maskedUrl);
+        log.debug("[UserNameFetch] HTTP Method     : GET");
+        log.debug("[UserNameFetch] Headers         : "
                 + "cavToken=*** (query param); User-Agent (JDK default) = Java/"
                 + System.getProperty("java.version"));
 
         try {
             return executeGet(url, "Fetch Username From Token", log, false);
         } catch (CavAIApiException e) {
-            PluginLogger.logDebugStackTrace(log, "[UserNameFetch]", e);
+            log.debugStackTrace("[UserNameFetch]", e);
             throw e;
         }
     }
@@ -427,7 +426,7 @@ public class CavAIRestClient {
      * a warning, not an error, so the build does not fail unnecessarily.
      */
     public void abortPipeline(String serverBaseUrl, String pipelineId,
-                              PrintStream log) throws CavAIApiException {
+                              CavLogger log) throws CavAIApiException {
         // allowNon2xx=true so that 409 does not throw
         String body = executePost(serverBaseUrl + PATH_ABORT + pipelineId,
                 null, "Abort Pipeline", log, true);
@@ -458,7 +457,7 @@ public class CavAIRestClient {
     }
 
     public String downloadJUnit(String serverBaseUrl, String pipelineId,
-                                PrintStream log) throws CavAIApiException {
+                                CavLogger log) throws CavAIApiException {
         return executeGet(serverBaseUrl + PATH_PROGRESS + pipelineId + "?format=junit",
                 "Download JUnit Report", log, false);
     }

@@ -1,6 +1,6 @@
 package com.cavisson.jenkins.ai.testcase.source;
 
-import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
+import com.cavisson.jenkins.log.CavLogger;
 import hudson.FilePath;
 import hudson.model.FileParameterValue;
 import hudson.model.ParameterValue;
@@ -11,7 +11,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
 import java.lang.reflect.Field;
 
 /**
@@ -91,7 +90,7 @@ public class LocalFileSource implements PrdSource {
     @Override
     public FilePath acquire(Run<?, ?> run,
                             FilePath  workspace,
-                            PrintStream log)
+                            CavLogger log)
             throws IOException, InterruptedException {
 
         // -- Strategy 1: Read from FileParameterValue (browser upload) ---------
@@ -112,8 +111,7 @@ public class LocalFileSource implements PrdSource {
                 // e.g. "SauceDemoTEST.feature" or "MyPRD.docx"
                 String originalName = getOriginalFileName(fpv);
                 if (originalName == null || originalName.trim().isEmpty()) {
-                    PluginLogger.logWarn(log,
-                            "FileParameterValue found but original filename is empty. "
+                    log.warn("FileParameterValue found but original filename is empty. "
                             + "The user may not have selected a file.");
                     break;
                 }
@@ -123,8 +121,7 @@ public class LocalFileSource implements PrdSource {
                 // org.apache.commons.fileupload.FileItem instance.
                 byte[] fileBytes = readFileBytes(fpv);
                 if (fileBytes == null || fileBytes.length == 0) {
-                    PluginLogger.logWarn(log,
-                            "FileParameterValue found but file is empty. "
+                    log.warn("FileParameterValue found but file is empty. "
                             + "The user selected an empty file.");
                     break;
                 }
@@ -137,10 +134,8 @@ public class LocalFileSource implements PrdSource {
                 destination.copyFrom(
                         new java.io.ByteArrayInputStream(fileBytes));
 
-                PluginLogger.logInfo(log,
-                        "PRD source: Local upload - " + originalName);
-                PluginLogger.logDebug(log,
-                        "Written to workspace: " + destination.getRemote()
+                log.info("PRD source: Local upload - " + originalName);
+                log.debug("Written to workspace: " + destination.getRemote()
                         + "  Size: " + fileBytes.length + " bytes");
 
                 return destination;
@@ -156,8 +151,7 @@ public class LocalFileSource implements PrdSource {
 
         FilePath wsCopy = workspace.child(prdParameterName);
         if (wsCopy.exists() && wsCopy.length() > 0) {
-            PluginLogger.logInfo(log,
-                    "PRD source: Workspace copy at " + prdParameterName);
+            log.info("PRD source: Workspace copy at " + prdParameterName);
             return wsCopy;
         }
 
@@ -174,10 +168,8 @@ public class LocalFileSource implements PrdSource {
             FilePath archived  = new FilePath(buildFileParam);
             FilePath wsTarget  = workspace.child(prdParameterName);
             archived.copyTo(wsTarget);
-            PluginLogger.logInfo(log,
-                    "PRD source: Build archive copy - " + prdParameterName);
-            PluginLogger.logDebug(log,
-                    "Copied from: " + buildFileParam.getAbsolutePath());
+            log.info("PRD source: Build archive copy - " + prdParameterName);
+            log.debug("Copied from: " + buildFileParam.getAbsolutePath());
             return wsTarget;
         }
 
@@ -186,14 +178,12 @@ public class LocalFileSource implements PrdSource {
         if (!prdFileFallback.isEmpty()) {
             FilePath candidate = workspace.child(prdFileFallback);
             if (candidate.exists()) {
-                PluginLogger.logInfo(log,
-                        "PRD source: Workspace file - " + prdFileFallback);
+                log.info("PRD source: Workspace file - " + prdFileFallback);
                 return candidate;
             }
             FilePath abs = new FilePath(new File(prdFileFallback));
             if (abs.exists()) {
-                PluginLogger.logInfo(log,
-                        "PRD source: Absolute path - " + prdFileFallback);
+                log.info("PRD source: Absolute path - " + prdFileFallback);
                 return abs;
             }
         }
