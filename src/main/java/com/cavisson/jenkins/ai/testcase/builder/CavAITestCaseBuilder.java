@@ -11,6 +11,7 @@ import com.cavisson.jenkins.ai.testcase.util.PayloadBuilder;
 import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
 import com.cavisson.jenkins.connection.CavServiceConnection;
 import com.cavisson.jenkins.log.CavLogger;
+import com.cavisson.jenkins.log.CavLogLevel;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import hudson.AbortException;
@@ -173,6 +174,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     private String       password             = "";
     private String       authenticationPrompt = "";
     private List<String> tags                 = new ArrayList<>();
+    private String        logLevel             = "INFO";
 
     // -- Constructor -----------------------------------------------------------
 
@@ -242,6 +244,13 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     { this.authenticationPrompt = v; }
     @DataBoundSetter public void setTags(List<String> v)
     { this.tags = v != null ? v : new ArrayList<>(); }
+    /**
+     * Console verbosity for the Agentic AI pipeline event stream (INFO/DEBUG/ERROR, default
+     * INFO). Distinct from the {@code LOG_LEVEL} environment variable, which continues to
+     * govern this plugin's own REST/debug diagnostics unchanged.
+     */
+    @DataBoundSetter public void setLogLevel(String v)
+    { this.logLevel = (v != null && !v.trim().isEmpty()) ? v.trim().toUpperCase() : "INFO"; }
 
     /**
      * Freestyle-UI-only bridge to {@link #setTags(List)}: f:repeatable does not reliably bind a
@@ -301,6 +310,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     public String       getAuthenticationPrompt() { return authenticationPrompt; }
     public List<String> getTags()                 { return Collections.unmodifiableList(tags); }
     public String        getTagsText()             { return String.join("\n", tags); }
+    public String        getLogLevel()             { return logLevel; }
 
     public String getUploadDestination() {
         String root = workspaceRoot.endsWith("/")
@@ -336,11 +346,11 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         String buildTag  = env.get("BUILD_TAG",    "jenkins-" + run.getId());
         String jobName   = env.get("JOB_NAME",     "unknown-job");
 
-        log.field("Job", jobName);
-        log.field("Server", serverUrl);
-        log.field("Source Type", sourceType);
-        log.field("Epic Pattern", jiraEpicPattern);
-        log.field("Integration Name", jiraIntegrationName);
+        log.debug("Job: " + jobName);
+        log.debug("Server: " + serverUrl);
+        log.debug("Source Type: " + sourceType);
+        log.debug("Epic Pattern: " + jiraEpicPattern);
+        log.debug("Integration Name: " + jiraIntegrationName);
         log.debug("Idempotency Key: " + buildTag);
         log.debug("PRD Source Type: " + prdSourceType);
 
@@ -463,16 +473,20 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_AI_PIPELINE_ID", pipelineId);
         CavissonEnvironmentPublisher.publish(run, envVars);
-        
-        log.field("Pipeline ID", pipelineId);
-        log.info("Pipeline Triggered Successfully...");
-        
+
+        // Console narration of the trigger itself is intentionally DEBUG-only: the backend's
+        // own "Pipeline started (...)" event (streamed via pollAndStream -> streamNewEvents)
+        // is the INFO-level line the Jenkins console shows for this milestone.
+        log.debug("Pipeline ID: " + pipelineId);
+
+
+        CavLogLevel selectedLevel = CavLogLevel.fromString(logLevel);
 
         Set<String> printedLines = new LinkedHashSet<>();
         String      progressJson = null;
 
         try {
-            progressJson = pollAndStream(client, serverUrl, pipelineId, log, printedLines);
+            progressJson = pollAndStream(client, serverUrl, pipelineId, log, printedLines, selectedLevel);
         } catch (AbortException ae) {
             try {
                 String failJson = client.downloadProgress(serverUrl, pipelineId, log);
@@ -497,6 +511,9 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
         long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
 
+        // The backend's own "Pipeline finished with state=COMPLETED (...)" event (already
+        // streamed via pollAndStream -> streamNewEvents) is the INFO-level line the console
+        // shows for completion; this summary stays DEBUG-only diagnostics.
         PluginLogger.printFinalSummary(log, project, subProject,
                 SourceManager.JIRA.equalsIgnoreCase(prdSourceType) ? "JIRA" : sourceType,
                 progressJson != null ? jf(progressJson, "testsuiteName")   : testSuiteName,
@@ -514,7 +531,8 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                                  String          serverUrl,
                                  String          pipelineId,
                                  CavLogger       log,
-                                 Set<String>     printedLines)
+                                 Set<String>     printedLines,
+                                 CavLogLevel     selectedLevel)
             throws AbortException, InterruptedException {
 
         int           elapsedPolls = 0;
@@ -526,9 +544,9 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
             try {
                 String events = client.downloadEvents(serverUrl, pipelineId, log);
-                PluginLogger.streamNewEvents(log, events, printedLines);
+                PluginLogger.streamNewEvents(log, events, printedLines, pipelineId, selectedLevel);
             } catch (CavAIApiException e) {
-                log.debug("Events fetch error (will retry): " + e.getMessage());
+                log.warn("Events fetch error (will retry): " + e.getMessage());
             }
 
             CavAIRestClient.StatusResponse status;
@@ -549,7 +567,8 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             if (state == PipelineState.COMPLETED) {
                 try {
                     PluginLogger.streamNewEvents(log,
-                            client.downloadEvents(serverUrl, pipelineId, log), printedLines);
+                            client.downloadEvents(serverUrl, pipelineId, log),
+                            printedLines, pipelineId, selectedLevel);
                 } catch (CavAIApiException e) {
                     log.debug("Final events error: " + e.getMessage());
                 }
@@ -565,7 +584,8 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             if (state.isFailure()) {
                 try {
                     PluginLogger.streamNewEvents(log,
-                            client.downloadEvents(serverUrl, pipelineId, log), printedLines);
+                            client.downloadEvents(serverUrl, pipelineId, log),
+                            printedLines, pipelineId, selectedLevel);
                 } catch (CavAIApiException e) {
                     log.debug("Final events error: " + e.getMessage());
                 }
@@ -576,14 +596,14 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                         + (reason.isEmpty() ? "" : ". Reason: " + reason));
             }
 
-            // Still running - narrate every 5 minutes so a long-running pipeline doesn't look
-            // stuck in the Jenkins console, same cadence/style as CavissonRunTestExecutor's
-            // "Test is still Running" progress narration.
+            // Still running - DEBUG-only heartbeat (diagnostics), every 5 minutes. The INFO
+            // console is a live mirror of the backend's own event stream now (streamNewEvents
+            // above), so no synthetic "still running" line is added there.
             elapsedPolls++;
             progress.append('.');
             long elapsedSeconds = elapsedPolls * (POLL_INTERVAL_MS / 1000);
             if (elapsedSeconds % 300 == 0) {
-                log.info(String.format("AI Test Case Generation is still running %s (%d min elapsed)",
+                log.debug(String.format("AI Test Case Generation is still running %s (%d min elapsed)",
                         progress, elapsedSeconds / 60));
                 progress.setLength(0);
             }
@@ -756,6 +776,14 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return m;
         }
 
+        public ListBoxModel doFillLogLevelItems() {
+            ListBoxModel m = new ListBoxModel();
+            m.add("INFO (Default)", "INFO");
+            m.add("DEBUG",          "DEBUG");
+            m.add("ERROR",          "ERROR");
+            return m;
+        }
+
         public ListBoxModel doFillGitProviderItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("-- Select (optional) --", "");
@@ -768,3 +796,4 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         private static boolean blank(String s) { return s == null || s.trim().isEmpty(); }
     }
 }
+
