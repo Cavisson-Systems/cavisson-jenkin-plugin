@@ -195,6 +195,13 @@
       <f:textarea/>
     </f:entry>
 
+    <f:entry title="Log Level"
+             field="logLevel"
+             description="Controls which Agentic AI pipeline events are shown in the Jenkins console. INFO (default): pipeline milestones only. DEBUG: milestones plus detailed execution events. ERROR: only the pipeline start/finish and errors.">
+      <f:select/>
+    </f:entry>
+
   </f:advanced>
 
 </j:jelly>
+

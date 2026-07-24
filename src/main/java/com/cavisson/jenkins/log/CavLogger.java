@@ -7,13 +7,14 @@ import hudson.model.TaskListener;
  * Wraps a build's {@link TaskListener} and filters output by the {@code LOG_LEVEL} environment
  * variable (ERROR|INFO|DEBUG, default INFO) so every task's Executor logs consistently. Every
  * emitted line is prefixed {@code "[LEVEL] message"} - callers pass just the message, not their
- * own level formatting. {@code error} messages always print (they precede an
- * {@code AbortException} or report a non-fatal problem worth surfacing regardless of level);
- * {@code warn}/{@code info} messages are normal per-task narration, shown at INFO and above;
- * {@code debug} messages are raw request/response payloads, only shown when
- * {@code LOG_LEVEL=DEBUG}. This is the single logger implementation shared by every task's
- * Executor, including the AI Test Case Generation module - do not reintroduce a
- * parallel PrintStream-based logger there.
+ * own level formatting. No timestamp is added here - Jenkins' own Timestamper plugin already
+ * prefixes every console line with a wall-clock time, so adding one here would double it up.
+ * {@code error} messages always print (they precede an {@code AbortException} or report a
+ * non-fatal problem worth surfacing regardless of level); {@code warn}/{@code info} messages are
+ * normal per-task narration, shown at INFO and above; {@code debug} messages are raw
+ * request/response payloads, only shown when {@code LOG_LEVEL=DEBUG}. This is the single logger
+ * implementation shared by every task's Executor, including the AI Test Case Generation module -
+ * do not reintroduce a parallel PrintStream-based logger there.
  */
 public final class CavLogger {
 
@@ -49,6 +50,27 @@ public final class CavLogger {
 
     public boolean isDebugEnabled() {
         return level.ordinal() >= CavLogLevel.DEBUG.ordinal();
+    }
+
+    /**
+     * Prints a line exactly as given - no {@code [LEVEL]} prefix, no gating by
+     * {@code LOG_LEVEL}. For mirroring an already-formatted external log line (e.g. the
+     * Agentic AI pipeline's own event stream) verbatim into the Jenkins console.
+     */
+    public void raw(String line) {
+        listener.getLogger().println(line);
+    }
+
+    /**
+     * Prints {@code "[label] message"} unconditionally, ignoring this logger's own
+     * {@code LOG_LEVEL} gating. For callers that do their own level-selection against a
+     * verbosity setting distinct from {@code LOG_LEVEL} - e.g. filtering an already-leveled
+     * external event stream (Agentic AI pipeline events) against a per-task "Log Level" field,
+     * where {@code LOG_LEVEL} itself must keep governing this logger's own REST/debug
+     * diagnostics unaffected by that per-task setting.
+     */
+    public void printAt(String label, String message) {
+        print(label, message);
     }
 
     /**
@@ -114,3 +136,4 @@ public final class CavLogger {
         return s.length() <= max ? s : s.substring(0, max) + "\n... [truncated]";
     }
 }
+
