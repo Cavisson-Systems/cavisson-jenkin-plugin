@@ -62,6 +62,19 @@ public final class CavLogger {
     }
 
     /**
+     * Prints {@code "<prefix><text>"} where {@code <text>} is rendered as a clickable hyperlink
+     * to {@code url} in the Jenkins console (via {@link hudson.console.HyperlinkNote}), falling
+     * back to plain {@code "text (url)"} text in consumers (e.g. plain-text log downloads,
+     * `mvn test` captured output) that don't render console notes. No {@code [LEVEL]} prefix, no
+     * {@code LOG_LEVEL} gating - same "mirror external content verbatim" contract as {@link #raw}.
+     */
+    public void rawHyperlink(String prefix, String url, String text) {
+        String label = (text == null || text.trim().isEmpty()) ? url : text;
+        String line = (prefix == null ? "" : prefix) + hudson.console.HyperlinkNote.encodeTo(url, label);
+        listener.getLogger().println(line);
+    }
+
+    /**
      * Prints {@code "[label] message"} unconditionally, ignoring this logger's own
      * {@code LOG_LEVEL} gating. For callers that do their own level-selection against a
      * verbosity setting distinct from {@code LOG_LEVEL} - e.g. filtering an already-leveled

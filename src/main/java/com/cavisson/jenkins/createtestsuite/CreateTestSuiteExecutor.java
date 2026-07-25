@@ -7,6 +7,7 @@ import com.cavisson.jenkins.log.AnsiColors;
 import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
+import hudson.console.HyperlinkNote;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import org.json.JSONArray;
@@ -134,7 +135,9 @@ final class CreateTestSuiteExecutor {
 
         String testsuite = responseJson.optString("testsuite", "");
         log.info("Test Suite created: " + testsuite);
-        logTestSuiteDetails(log, responseJson);
+        log.info("Test Suite Creation : " + AnsiColors.bold(AnsiColors.status(responseJson.optString("status", ""))));
+        logSourceCodeChanges(log, responseJson);
+        logTestSuiteDetails(log, responseJson, baseUrl, hasDiffSource, tagsArray, resolvedMergeId, resolvedCommitId);
 
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_NEW_TESTSUITE_NAME", lastPathSegment(testsuite));
@@ -147,43 +150,114 @@ final class CreateTestSuiteExecutor {
     }
 
     /**
-     * Prints the "Test Suite Creation" summary block: overall status, total distinct testcase
-     * count, and a per-file breakdown (grouped by the response's "change" code - "m" = Modified,
-     * "n" = New, anything else falls back to "Changed") listing the testcases each file affected.
+     * Prints the flat "Source Code Changes" list - the distinct set of "file" entries from the
+     * response's "details" array (each tagged with its "change" label), replacing the older
+     * per-file testcase breakdown. The server only returns "details" for git-diff-based creation
+     * (commitId/mergeId); a tags-only creation has no source-file mapping, so nothing is printed.
      */
-    private static void logTestSuiteDetails(CavLogger log, JSONObject responseJson) {
-        String status = responseJson.optString("status", "");
+    private static void logSourceCodeChanges(CavLogger log, JSONObject responseJson) {
         JSONArray details = responseJson.optJSONArray("details");
-
-        log.info("Test Suite Creation : " + AnsiColors.bold(AnsiColors.status(status)));
         if (details == null || details.isEmpty()) {
             return;
         }
 
-        Set<String> allTestcases = new LinkedHashSet<>();
+        Set<String> seen = new LinkedHashSet<>();
+        Map<String, String> modifiedFiles = new LinkedHashMap<>();
         for (int i = 0; i < details.length(); i++) {
-            JSONArray testcases = details.getJSONObject(i).optJSONArray("testcases");
-            if (testcases != null) {
-                for (int j = 0; j < testcases.length(); j++) {
-                    allTestcases.add(testcases.getString(j));
+            JSONObject detail = details.getJSONObject(i);
+            String file = detail.optString("file", "");
+            if (!file.isEmpty() && seen.add(file)) {
+                modifiedFiles.put(file, changeLabel(detail.optString("change", "")));
+            }
+        }
+
+        log.info("   Source Code Changes :");
+        for (Map.Entry<String, String> entry : modifiedFiles.entrySet()) {
+            log.info("     " + entry.getValue() + " - " + entry.getKey());
+        }
+    }
+
+    /**
+     * Prints the distinct testcase count - with a suffix noting whether the suite was built from
+     * tags or from a git mergeId/commitId - plus a clickable share.html link per testcase. The
+     * testcase set is read from the response's top-level "testcases" array so it's populated
+     * whether or not "details" (git-diff-only) is present, plus (commented out below) a per-file
+     * breakdown listing the testcases each file affected.
+     */
+    private static void logTestSuiteDetails(CavLogger log, JSONObject responseJson, String baseUrl,
+                                             boolean hasDiffSource, JSONArray tagsArray,
+                                             String resolvedMergeId, String resolvedCommitId) {
+        JSONArray details = responseJson.optJSONArray("details");
+        JSONArray testcasesArray = responseJson.optJSONArray("testcases");
+
+        Set<String> allTestcases = new LinkedHashSet<>();
+        if (testcasesArray != null) {
+            for (int i = 0; i < testcasesArray.length(); i++) {
+                allTestcases.add(testcasesArray.getString(i));
+            }
+        } else if (details != null) {
+            for (int i = 0; i < details.length(); i++) {
+                JSONArray testcases = details.getJSONObject(i).optJSONArray("testcases");
+                if (testcases != null) {
+                    for (int j = 0; j < testcases.length(); j++) {
+                        allTestcases.add(testcases.getString(j));
+                    }
                 }
             }
         }
 
-        log.info("   Test Suite created with " + AnsiColors.bold(String.valueOf(allTestcases.size())) + " test cases, ");
-        log.info("   Test Case selected based on source code changes - ");
-        for (int i = 0; i < details.length(); i++) {
-            JSONObject detail = details.getJSONObject(i);
-            String file = detail.optString("file", "");
-            String label = changeLabel(detail.optString("change", ""));
-            log.info("     " + label + " - " + file + " ");
+        if (allTestcases.isEmpty()) {
+            return;
+        }
 
-            JSONArray testcases = detail.optJSONArray("testcases");
-            if (testcases != null) {
-                for (int j = 0; j < testcases.length(); j++) {
-                    log.info("       " + testcases.getString(j));
-                }
+        StringBuilder source = new StringBuilder();
+        if (tagsArray != null && !tagsArray.isEmpty()) {
+            source.append("with provided tags ").append(tagsArray);
+        }
+        if (hasDiffSource) {
+            if (source.length() > 0) {
+                source.append(" and ");
+            } else {
+                source.append("with ");
             }
+            source.append((resolvedMergeId != null && !resolvedMergeId.trim().isEmpty())
+                    ? "mergeId " + resolvedMergeId.trim()
+                    : "commitId " + resolvedCommitId.trim());
+        }
+
+        log.info("   Test Suite created with " + AnsiColors.bold(String.valueOf(allTestcases.size()))
+                + " test cases, " + source);
+        for (String testcase : allTestcases) {
+            log.info("     " + HyperlinkNote.encodeTo(testcaseUrl(baseUrl, testcase), lastPathSegment(testcase)));
+        }
+        // Superseded by logModifiedFiles(); kept for reference in case per-file testcase
+        // breakdown logging is wanted again.
+        // log.info("   Test Case selected based on source code changes - ");
+        // for (int i = 0; i < details.length(); i++) {
+        //     JSONObject detail = details.getJSONObject(i);
+        //     String file = detail.optString("file", "");
+        //     String label = changeLabel(detail.optString("change", ""));
+        //     log.info("     " + label + " - " + file + " ");
+        //
+        //     JSONArray testcases = detail.optJSONArray("testcases");
+        //     if (testcases != null) {
+        //         for (int j = 0; j < testcases.length(); j++) {
+        //             log.info("       " + testcases.getString(j));
+        //         }
+        //     }
+        // }
+    }
+
+    /** Builds the "View Testcase" share.html link: {@code <baseUrl>/UnifiedDashboard/share.html?open=testcase&tc=<testcase>}. */
+    private static String testcaseUrl(String baseUrl, String testcase) {
+        return baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?open=testcase&tc=" + urlEncode(testcase);
+    }
+
+    private static String urlEncode(String value) {
+        try {
+            return java.net.URLEncoder.encode(value, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return value;
         }
     }
 
