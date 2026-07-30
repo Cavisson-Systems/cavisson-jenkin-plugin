@@ -152,7 +152,7 @@ final class AnalyseTestFailureExecutor {
             log.info(String.format("        Analyzed : %d", results.size()));
             log.info(String.format("        Completed: %d", completedCount));
             log.info(String.format("        Failed   : %d", failedCount));
-            log.info(String.format("        Report   : %s", reportUrl));
+            log.infoHyperlink("        Report   : ", reportUrl, "View Analyzed Report");
 
             try {
                 CavissonDescriptionPublisher.appendReportRow(run, env, reportUrl, "Cavisson - Analyse Test Failure");

@@ -75,6 +75,18 @@ public final class CavLogger {
     }
 
     /**
+     * Prints {@code "[INFO ] <prefix><text>"} where {@code <text>} is a clickable hyperlink to
+     * {@code url} - same level gating as {@link #info}, same hyperlink rendering as
+     * {@link #rawHyperlink}. For a normal narration line whose value should be clickable (e.g. a
+     * report URL) instead of printed as plain text.
+     */
+    public void infoHyperlink(String prefix, String url, String text) {
+        if (level.ordinal() >= CavLogLevel.INFO.ordinal()) {
+            rawHyperlink(prefix("INFO") + (prefix == null ? "" : prefix), url, text);
+        }
+    }
+
+    /**
      * Prints {@code "[label] message"} unconditionally, ignoring this logger's own
      * {@code LOG_LEVEL} gating. For callers that do their own level-selection against a
      * verbosity setting distinct from {@code LOG_LEVEL} - e.g. filtering an already-leveled

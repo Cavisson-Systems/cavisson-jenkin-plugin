@@ -11,9 +11,8 @@ import java.util.regex.Pattern;
 
 /**
  * AI Test Case Generation pipeline-specific log formatting, built on top of the shared
- * {@link CavLogger} (prefixes and secret-masking live there - this class only knows how to lay
- * out this pipeline's structured output: live event streaming/filtering, and the
- * final/failure/abort summaries).
+ * {@link CavLogger} (prefixes/masking live there) - this class lays out live event
+ * streaming/filtering and the final/failure/abort summaries.
  */
 public final class PluginLogger {
 
@@ -21,44 +20,25 @@ public final class PluginLogger {
 
     // -- Live event streaming --------------------------------------------------
 
-    /**
-     * Confirmed real backend event line shape: {@code HH:mm:ss [LEVEL] message} - a plain
-     * time (no date, no brackets around it), then the level padded to 5 chars inside brackets,
-     * then the message. A line matching this shape starts a new event; any line that does NOT
-     * match it (blank lines, indented continuation text) belongs to the PREVIOUS event's
-     * message body and is grouped along with it - the backend itself sends multi-line event
-     * messages (e.g. "AI Test Case Generation Completed" followed by indented Test Case/Test
-     * Name/Story Link/Test Link lines is ONE event, not several). Grouping is verbatim; the one
-     * reshaping done is in {@link #reshapeLinks} - see that method's javadoc.
-     */
+    /** {@code HH:mm:ss [LEVEL] message} starts a new event; any other line is that event's
+     * continuation (multi-line) body, kept verbatim except for {@link #reshapeLinks}. */
     private static final Pattern EVENT_START =
             Pattern.compile("^(?:\\d{2}:\\d{2}:\\d{2}\\s+)?\\[\\s*(INFO|DEBUG|ERROR|WARN)\\s*\\]\\s?(.*)$",
                     Pattern.CASE_INSENSITIVE);
 
     private static final Pattern PIPELINE_STARTED = Pattern.compile("^Pipeline started\\b.*");
 
+    /** Resent by the backend once per story/testcase; matched trimmed/case-insensitively
+     * against {@code block.get(0)}. */
+    private static final String HEADER_GENERATION = "AI Test Case Generation Completed";
+    private static final String HEADER_AUTOMATION = "AI Test Case Automation Completed";
+
     /**
-     * Continuation-line fields reshaped by {@link #reshapeLinks} into clickable lines instead of
-     * printed verbatim like every other continuation line. Each pattern captures two groups: (1)
-     * everything up to and including the label and its colon-space - the backend's own leading
-     * {@code HH:mm:ss} timestamp and indent included, kept 100% verbatim - and (2) the field
-     * value, which is the only part that gets swapped for a hyperlink. Two distinct event shapes
-     * are known:
-     * <ul>
-     * <li>"AI Test Case Generation Completed" - {@code Story}/{@code Story Link}/{@code Test
-     *     Case}, no {@code Test Link} - reshaped to the original "Story" line with its value
-     *     turned into a hyperlink to Story Link, plus the original "Test Case" line untouched
-     *     (nothing to link Test Case to at this stage). The "Story Link" line itself is dropped -
-     *     its value was only needed as the href.</li>
-     * <li>"AI Test Case Automation Completed" - {@code Test Case}/{@code Test Name}/{@code Story
-     *     Link}/{@code Test Link} - reshaped to the original "Test Case" line untouched (it's
-     *     unrelated to Story Link here, a different value than the Generation-Completed event's
-     *     Test Case), the original "Story Link" line with its value turned into a self-link, and
-     *     the original "Test Name" line with its value turned into a hyperlink to Test Link. The
-     *     "Test Link" line itself is dropped - its value was only needed as the href.</li>
-     * </ul>
-     * {@code STORY_LINE} must not accidentally match a "Story Link" line - it can't, since
-     * "Story Link :" has "Link" between "Story" and the colon, which {@code Story\s*:} rejects.
+     * Fields {@link #reshapeLinks} turns into clickable lines. Generation-Completed: Story
+     * line prints (as a Story-Link hyperlink) only once per story, plus a numbered "Test Case
+     * N" line per occurrence. Automation-Completed: Test Case line untouched, Story printed in
+     * the same hyperlinked format (falling back to relabeling "Story Link" if no separate
+     * story-title line exists), Test Name turned into a Test-Link hyperlink.
      */
     private static final Pattern STORY_LINE      = Pattern.compile("^(.*\\bStory\\s*:\\s*)(.*)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern STORY_LINK_LINE = Pattern.compile("^(.*\\bStory Link\\s*:\\s*)(.*)$", Pattern.CASE_INSENSITIVE);
@@ -66,26 +46,43 @@ public final class PluginLogger {
     private static final Pattern TEST_NAME_LINE  = Pattern.compile("^(.*\\bTest Name\\s*:\\s*)(.*)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern TEST_LINK_LINE  = Pattern.compile("^(.*\\bTest Link\\s*:\\s*)(.*)$", Pattern.CASE_INSENSITIVE);
 
+    /** Rewrites a captured {@code "...Test Case..."} prefix into {@code "...Test Case <n>..."}. */
+    private static final Pattern TEST_CASE_LABEL = Pattern.compile("(?i)(Test\\s*Case)(\\s*:)");
+
+    /** Rewrites a captured {@code "...Story Link..."} prefix into {@code "...Story..."}. */
+    private static final Pattern STORY_LINK_LABEL = Pattern.compile("(?i)Story\\s*Link");
+
+    /** Marker-key prefixes stashed into the caller's {@code printedEvents} Set (never printed)
+     * so Generation-Completed's per-story dedup/numbering survives the whole polling run. */
+    private static final String STORY_SHOWN_MARKER    = "STORY_SHOWN|";
+    private static final String TEST_CASE_SEQ_MARKER  = "TESTCASE_SEQ|";
+
+    /** First {@code Story Link} value found in the block's continuation lines, or null. */
+    private static String extractStoryLinkValue(List<String> block) {
+        for (int i = 1; i < block.size(); i++) {
+            Matcher m = STORY_LINK_LINE.matcher(block.get(i));
+            if (m.matches()) return m.group(2).trim();
+        }
+        return null;
+    }
+
+    /** Counts how many entries in {@code set} start with {@code prefix}. */
+    private static int countPrefixed(Set<String> set, String prefix) {
+        int count = 0;
+        for (String entry : set) {
+            if (entry.startsWith(prefix)) count++;
+        }
+        return count;
+    }
+
     /**
      * Streams backend event lines live during polling, filtered by the per-task Log Level
-     * setting (distinct from the {@code LOG_LEVEL} env var, which keeps governing this
-     * logger's own REST/debug diagnostics unaffected by this setting).
-     *
-     * The events API ({@code GET .../progress/{id}?format=events}) returns the COMPLETE
-     * history on every poll. Physical lines are first grouped into logical events (a line
-     * matching {@link #EVENT_START} opens a new event; everything after it up to the next
-     * such line is that event's multi-line message body, kept verbatim). Each COMPLETE event
-     * is then deduped against {@code printedEvents} (caller creates the Set once and passes it
-     * on every poll cycle) - grouping before dedup means a multi-line event is never split
-     * across polls or re-evaluated piecemeal.
-     *
-     * An event prints only if {@code selectedLevel.ordinal() >= event's own level.ordinal()}
-     * (same ordinal convention as {@link CavLogLevel}) - no exceptions, no forced milestones:
-     * whatever the backend tags as visible at the selected level is shown exactly as sent,
-     * everything else is skipped. The one convenience kept: when a "Pipeline started" event
-     * passes the filter, the Pipeline ID line is printed immediately after it (Pipeline ID
-     * itself comes from the trigger response, not the event stream, so it is not itself
-     * subject to level filtering).
+     * (distinct from the {@code LOG_LEVEL} env var). The events API returns the COMPLETE
+     * history every poll; lines are grouped into logical events by {@link #EVENT_START} then
+     * deduped against {@code printedEvents} (caller-owned Set, reused every poll cycle - also
+     * carries the Generation-Completed dedup/numbering markers, see {@link #STORY_SHOWN_MARKER}).
+     * An event prints only if {@code selectedLevel.ordinal() >= event's level.ordinal()}. A
+     * "Pipeline started" event gets the Pipeline ID line printed right after it.
      */
     public static void streamNewEvents(CavLogger log,
                                        String rawEvents,
@@ -132,26 +129,41 @@ public final class PluginLogger {
 
         if (selectedLevel.ordinal() < CavLogLevel.fromString(level).ordinal()) return;
 
-        log.printAt(level, block.get(0));
-        reshapeLinks(log, block);
+        String headerText    = block.get(0);
+        String trimmedHeader = headerText.trim();
 
-        if (PIPELINE_STARTED.matcher(block.get(0)).matches()) {
+        // Every header prints unconditionally, except Generation-Completed's, which only
+        // prints once per story (Automation-Completed's "Story" line is never deduped, so its
+        // header follows suit and prints every occurrence).
+        boolean printHeader = true;
+        if (trimmedHeader.equalsIgnoreCase(HEADER_GENERATION)) {
+            String storyKey = extractStoryLinkValue(block);
+            printHeader = storyKey != null && !printedEvents.contains(STORY_SHOWN_MARKER + storyKey);
+        }
+        if (printHeader) {
+            log.printAt(level, headerText);
+        }
+        reshapeLinks(log, block, printedEvents);
+
+        if (PIPELINE_STARTED.matcher(headerText).matches()) {
             log.printAt(level, "Pipeline ID : " + pipelineId);
         }
     }
 
     /**
-     * Prints the block's continuation lines (block.get(1..)), collapsing the known field lines
-     * into clickable ones per the two shapes documented on {@link #STORY_LINE} et al. Any other
-     * continuation line (including a field quartet not fully present) is printed verbatim, in
-     * its original position, exactly as before.
+     * Reshapes the block's continuation lines per {@link #STORY_LINE} et al. Every line is
+     * buffered while scanning so print order can be controlled (Story first, then everything
+     * else) regardless of the backend's own line order; unmatched lines - including its
+     * pre-numbered {@code "Testcase 1"/"Testcase 2"} fields, which don't match
+     * {@link #TEST_CASE_LINE}'s spaced "Test Case" label - print verbatim.
      */
-    private static void reshapeLinks(CavLogger log, List<String> block) {
+    private static void reshapeLinks(CavLogger log, List<String> block, Set<String> printedEvents) {
         String storyPrefix = null, storyValue = null;
         String storyLinkPrefix = null, storyLinkValue = null;
-        String testCaseLine = null;
+        String testCasePrefix = null, testCaseValue = null;
         String testNamePrefix = null, testNameValue = null;
         String testLinkValue = null;
+        List<String> otherLines = new ArrayList<>();
 
         for (int i = 1; i < block.size(); i++) {
             String line = block.get(i);
@@ -163,44 +175,64 @@ public final class PluginLogger {
                 storyPrefix = m.group(1);
                 storyValue = m.group(2).trim();
             } else if ((m = TEST_CASE_LINE.matcher(line)).matches()) {
-                testCaseLine = line;
+                testCasePrefix = m.group(1);
+                testCaseValue = m.group(2).trim();
             } else if ((m = TEST_NAME_LINE.matcher(line)).matches()) {
                 testNamePrefix = m.group(1);
                 testNameValue = m.group(2).trim();
             } else if ((m = TEST_LINK_LINE.matcher(line)).matches()) {
                 testLinkValue = m.group(2).trim();
             } else {
-                log.raw(line);
+                otherLines.add(line);
             }
         }
 
         if (notBlank(testNameValue) && notBlank(testLinkValue)) {
-            // "AI Test Case Automation Completed" shape.
-            if (testCaseLine != null) {
-                log.raw(testCaseLine);
+            // Automation-Completed shape.
+            String storyLabelPrefix = notBlank(storyPrefix) ? storyPrefix
+                    : (storyLinkPrefix != null ? STORY_LINK_LABEL.matcher(storyLinkPrefix).replaceFirst("Story") : null);
+            String storyLabelText = notBlank(storyValue) ? storyValue : storyLinkValue;
+            if (storyLabelPrefix != null && notBlank(storyLinkValue)) {
+                log.rawHyperlink(storyLabelPrefix, storyLinkValue, storyLabelText);
             }
-            if (notBlank(storyLinkPrefix) && notBlank(storyLinkValue)) {
-                log.rawHyperlink(storyLinkPrefix, storyLinkValue, storyLinkValue);
+            printAll(log, otherLines);
+            if (testCasePrefix != null) {
+                log.raw(testCasePrefix + testCaseValue);
             }
             log.rawHyperlink(testNamePrefix, testLinkValue, testNameValue);
         } else if (notBlank(storyPrefix) && notBlank(storyLinkValue)) {
-            // "AI Test Case Generation Completed" shape.
-            log.rawHyperlink(storyPrefix, storyLinkValue, storyValue);
-            if (testCaseLine != null) {
-                log.raw(testCaseLine);
+            // Generation-Completed shape: Story prints once per story, Test Case is numbered
+            // within it via marker entries in printedEvents (no separate counter needed).
+            String storyMarker = STORY_SHOWN_MARKER + storyLinkValue;
+            if (!printedEvents.contains(storyMarker)) {
+                log.rawHyperlink(storyPrefix, storyLinkValue, storyValue);
+                printedEvents.add(storyMarker);
             }
+            printAll(log, otherLines);
+            if (testCasePrefix != null) {
+                String seqPrefix = TEST_CASE_SEQ_MARKER + storyLinkValue + "|";
+                int seq = countPrefixed(printedEvents, seqPrefix) + 1;
+                printedEvents.add(seqPrefix + seq);
+                String numberedPrefix = TEST_CASE_LABEL.matcher(testCasePrefix)
+                        .replaceFirst("$1 " + seq + "$2");
+                log.raw(numberedPrefix + testCaseValue);
+            }
+        } else {
+            printAll(log, otherLines);
+        }
+    }
+
+    private static void printAll(CavLogger log, List<String> lines) {
+        for (String line : lines) {
+            log.raw(line);
         }
     }
 
     // -- Final Pipeline Summary --------------------------------------------------
     // Printed exactly ONCE after the pipeline reaches a terminal state.
 
-    /**
-     * Logs the completion summary at DEBUG (full diagnostics only - the INFO console shows just
-     * the plain "AI Test Case Generation Completed Successfully" line, printed by the caller).
-     * The Pipeline ID itself is printed once, right after trigger (see
-     * {@code CavAITestCaseBuilder.perform()}), not repeated here.
-     */
+    /** DEBUG-only diagnostics; the INFO console shows the plain "Completed" line instead
+     * (printed by the caller). Pipeline ID is printed once, right after trigger. */
     public static void printFinalSummary(CavLogger log,
                                          String project,
                                          String subproject,

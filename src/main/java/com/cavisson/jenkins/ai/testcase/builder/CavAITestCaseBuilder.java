@@ -511,13 +511,27 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
         long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
 
+        String testsuiteName = progressJson != null ? jf(progressJson, "testsuiteName") : testSuiteName;
+        String testsuiteUrl  = progressJson != null ? jf(progressJson, "testsuiteUrl")  : "";
+        // The progress response doesn't always carry testsuiteUrl back - whenever a suite was
+        // actually generated (testsuiteName is non-empty) but the server left the URL out,
+        // build the link ourselves from the same UnifiedDashboard share-link pattern the server
+        // itself uses, rather than silently dropping the link.
+        if (testsuiteUrl.isEmpty() && !testsuiteName.isEmpty()) {
+            testsuiteUrl = serverUrl.replaceAll("/+$", "")
+                    + "/UnifiedDashboard/share.html?open=testsuite&ts=" + project + "/" + subProject + "/" + testsuiteName;
+        }
+        if (!testsuiteUrl.isEmpty()) {
+            log.infoHyperlink("        Test Suite : ", testsuiteUrl, "View Test Suite");
+        }
+
         // The backend's own "Pipeline finished with state=COMPLETED (...)" event (already
         // streamed via pollAndStream -> streamNewEvents) is the INFO-level line the console
         // shows for completion; this summary stays DEBUG-only diagnostics.
         PluginLogger.printFinalSummary(log, project, subProject,
                 SourceManager.JIRA.equalsIgnoreCase(prdSourceType) ? "JIRA" : sourceType,
-                progressJson != null ? jf(progressJson, "testsuiteName")   : testSuiteName,
-                progressJson != null ? jf(progressJson, "testsuiteUrl")    : "",
+                testsuiteName,
+                testsuiteUrl,
                 progressJson != null ? jf(progressJson, "storyCount")      : "0",
                 progressJson != null ? jf(progressJson, "testcaseCount")   : "0",
                 progressJson != null ? jf(progressJson, "publishedEpicKey"): "",

@@ -136,6 +136,9 @@ final class CreateTestSuiteExecutor {
         String testsuite = responseJson.optString("testsuite", "");
         log.info("Test Suite created: " + testsuite);
         log.info("Test Suite Creation : " + AnsiColors.bold(AnsiColors.status(responseJson.optString("status", ""))));
+        if (!testsuite.isEmpty()) {
+            log.infoHyperlink("Test Suite : ", testsuiteUrl(baseUrl, testsuite), "View Test Suite");
+        }
         logSourceCodeChanges(log, responseJson);
         logTestSuiteDetails(log, responseJson, baseUrl, hasDiffSource, tagsArray, resolvedMergeId, resolvedCommitId);
 
@@ -251,6 +254,16 @@ final class CreateTestSuiteExecutor {
     /** Builds the "View Testcase" share.html link: {@code <baseUrl>/UnifiedDashboard/share.html?open=testcase&tc=<testcase>}. */
     private static String testcaseUrl(String baseUrl, String testcase) {
         return baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?open=testcase&tc=" + urlEncode(testcase);
+    }
+
+    /**
+     * Builds the "View Test Suite" share.html link: {@code <baseUrl>/UnifiedDashboard/share.html?open=testsuite&ts=<testsuite>}.
+     * {@code testsuite} ("project/subproject/name") is used verbatim, not URL-encoded - the
+     * slashes are the expected path-segment separators in this query param, matching the same
+     * unencoded {@code ts=} convention used elsewhere for this share-link shape.
+     */
+    private static String testsuiteUrl(String baseUrl, String testsuite) {
+        return baseUrl.replaceAll("/+$", "") + "/UnifiedDashboard/share.html?open=testsuite&ts=" + testsuite;
     }
 
     private static String urlEncode(String value) {

@@ -184,7 +184,7 @@ final class CavissonRunTestExecutor {
                     log.info(String.format("        Status : %s", AnsiColors.status(finalStatus)));
                     log.debug(String.format("        Message: %s", statusMessage));
                     if (!reportUrl.isEmpty()) {
-                        log.info(String.format("        Report : %s", reportUrl));
+                        log.infoHyperlink("        Report : ", reportUrl, "View Execution Report");
                     }
                     if (junitSummary != null && !junitSummary.failures.isEmpty()) {
                         log.info(AnsiColors.red("        Failure Test Case(s) - "));
