@@ -7,14 +7,9 @@ import hudson.model.TaskListener;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public final class CavLogger {
-
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private static final String LOG_LEVEL_ENV = "LOG_LEVEL";
 
@@ -73,8 +68,6 @@ public final class CavLogger {
             return;
         }
 
-        String time = LocalTime.now().format(TIME_FORMAT);
-
         if (message == null) {
             message = "";
         }
@@ -87,7 +80,7 @@ public final class CavLogger {
             }
 
             listener.getLogger().println(
-                    time + " [" + messageLevel.name() + " ] " + maskSecrets(line)
+                    "[" + messageLevel.name() + " ] " + maskSecrets(line)
             );
         }
     }

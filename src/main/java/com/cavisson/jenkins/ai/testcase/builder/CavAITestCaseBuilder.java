@@ -10,6 +10,8 @@ import com.cavisson.jenkins.ai.testcase.util.CredentialUtil;
 import com.cavisson.jenkins.ai.testcase.util.PayloadBuilder;
 import com.cavisson.jenkins.ai.testcase.util.PluginLogger;
 import com.cavisson.jenkins.connection.CavServiceConnection;
+import com.cavisson.jenkins.git.GitIntegrationClient;
+import com.cavisson.jenkins.git.GitIntegrationConfig;
 import com.cavisson.jenkins.log.CavLogger;
 import com.cavisson.jenkins.log.CavLogLevel;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
@@ -28,7 +30,6 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import hudson.util.Secret;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
@@ -144,11 +145,20 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     private String prdParameterName = "PRD_FILE_UPLOAD";
     private String prdFile          = "";
 
-    // -- Git credentials (per-job Execution Source fields; override the Service Connection's) --
+    // -- Git credentials --------------------------------------------------------
+    //
+    // Git checkout always authenticates via a named Cavisson "Git Integration" (Extension
+    // Config, type gitsourcecode) resolved at build time through GitIntegrationClient - never
+    // via a Jenkins-stored credential.
 
-    private String gitProvider   = "";
-    private String gitUsername   = "";
-    private Secret gitCredential;
+    /**
+     * Name of a "Git Integration" saved in the Cavisson application (Extension Config, type
+     * gitsourcecode). {@link com.cavisson.jenkins.git.GitIntegrationClient} resolves
+     * the username/PAT from the server at build time - required whenever Execution Source =
+     * GIT, with no fallback to a Jenkins-stored credential. Resolved fresh per build, never
+     * stored as a Jenkins Credential.
+     */
+    private String gitIntegrationName = "";
 
     // -- JIRA source fields (NEW in v9) ----------------------------------------
 
@@ -196,8 +206,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     { this.cavServiceConnectionId = v; }
     @DataBoundSetter public void setApplicationUrl(String v)
     { this.applicationUrl = v != null ? v.trim() : ""; }
-    /** @deprecated use {@link #setCavServiceConnectionId(String)}; kept for backward compatibility. */
-    @Deprecated
+    /** Alternate name for {@link #setCavServiceConnectionId(String)} - both are supported. */
     @DataBoundSetter public void setCavConnection(String v)
     { this.cavServiceConnectionId = v; }
     @DataBoundSetter public void setWorkspaceRoot(String v)
@@ -222,12 +231,8 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     { this.prdParameterName = (v != null && !v.trim().isEmpty()) ? v.trim() : "PRD_FILE_UPLOAD"; }
     @DataBoundSetter public void setPrdFile(String v)
     { this.prdFile = v != null ? v.trim() : ""; }
-    @DataBoundSetter public void setGitProvider(String v)
-    { this.gitProvider = v != null ? v.trim() : ""; }
-    @DataBoundSetter public void setGitUsername(String v)
-    { this.gitUsername = v != null ? v.trim() : ""; }
-    @DataBoundSetter public void setGitCredential(Secret v)
-    { this.gitCredential = v; }
+    @DataBoundSetter public void setGitIntegrationName(String v)
+    { this.gitIntegrationName = v != null ? v.trim() : ""; }
     @DataBoundSetter public void setJiraEpicPattern(String v)
     { this.jiraEpicPattern = v != null ? v.trim() : ""; }
     @DataBoundSetter public void setJiraIntegrationName(String v)
@@ -276,8 +281,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
     public String       getCavServiceConnectionId() { return cavServiceConnectionId; }
     public String       getApplicationUrl()       { return applicationUrl; }
-    /** @deprecated use {@link #getCavServiceConnectionId()}; kept for backward compatibility. */
-    @Deprecated
+    /** Alternate name for {@link #getCavServiceConnectionId()} - both are supported. */
     public String       getCavConnection()        { return cavServiceConnectionId; }
     public String       getWorkspaceRoot()        { return workspaceRoot; }
     public String       getProject()              { return project; }
@@ -290,11 +294,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     public String       getGitPrdPath()           { return gitPrdPath; }
     public String       getPrdParameterName()     { return prdParameterName; }
     public String       getPrdFile()              { return prdFile; }
-    public String       getGitProvider()          { return gitProvider; }
-    public String       getGitUsername()          { return gitUsername; }
-    public Secret        getGitCredential()        { return gitCredential; }
-    /** Plaintext PAT/SSH key, for passing into GitSource - never logged. */
-    public String        getGitCredentialPlain()   { return gitCredential == null ? "" : gitCredential.getPlainText(); }
+    public String       getGitIntegrationName()   { return gitIntegrationName; }
     public String       getJiraEpicPattern()      { return jiraEpicPattern; }
     public String       getJiraIntegrationName()  { return jiraIntegrationName; }
     public String       getSourceType()           { return sourceType; }
@@ -413,10 +413,25 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             // Acquire PRD file via SourceManager (LOCAL or GIT)
             FilePath resolvedFilePath;
             try {
+                String gitUser = null;
+                String gitPat  = null;
+
+                // Git checkout always authenticates via the named Cavisson Git Integration -
+                // resolved from the server at build time, never a Jenkins-stored credential.
+                // gitIntegrationName is required (validateParameters) whenever prdSourceType=GIT,
+                // so there is no fallback path here.
+                if (SourceManager.GIT.equalsIgnoreCase(prdSourceType)) {
+                    GitIntegrationConfig gitIntegration =
+                            GitIntegrationClient.fetch(serverUrl, cavToken, gitIntegrationName, true, log);
+                    gitUser = gitIntegration.username;
+                    gitPat  = gitIntegration.token;
+                    log.info("Resolved Git Integration '" + gitIntegrationName + "' for repository checkout");
+                }
+
                 resolvedFilePath = SourceManager.acquire(
                         prdSourceType, credential,
                         gitRepoUrl, gitBranch, gitPrdPath,
-                        gitUsername, getGitCredentialPlain(),
+                        gitUser, gitPat,
                         prdParameterName, prdFile,
                         run, workspace, log);
             } catch (IOException e) {
@@ -654,6 +669,9 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         if (SourceManager.GIT.equalsIgnoreCase(prdSourceType)) {
             requireNonBlank(gitRepoUrl,  "gitRepoUrl (required when prdSourceType=GIT)");
             requireNonBlank(gitPrdPath,  "gitPrdPath (required when prdSourceType=GIT)");
+            requireNonBlank(gitIntegrationName,
+                    "gitIntegrationName (required when prdSourceType=GIT - Git checkout always "
+                    + "authenticates via a named Cavisson Git Integration)");
         }
 
         // Publish fields validation (LOCAL and GIT only)
@@ -775,6 +793,18 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @POST public FormValidation doCheckGitIntegrationName(
+                @QueryParameter String gitIntegrationName,
+                @QueryParameter String prdSourceType) {
+            if (SourceManager.GIT.equalsIgnoreCase(prdSourceType) && blank(gitIntegrationName)) {
+                return FormValidation.error(
+                        "Git Integration Name is required when Source Type is GIT. "
+                        + "Repository checkout always authenticates via a named Cavisson Git "
+                        + "Integration (Manage Cavisson App > Extension Config > Git Source Code).");
+            }
+            return FormValidation.ok();
+        }
+
         public ListBoxModel doFillPrdSourceTypeItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("Local File Upload (Default)", SourceManager.LOCAL);
@@ -795,15 +825,6 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             m.add("INFO (Default)", "INFO");
             m.add("DEBUG",          "DEBUG");
             m.add("ERROR",          "ERROR");
-            return m;
-        }
-
-        public ListBoxModel doFillGitProviderItems() {
-            ListBoxModel m = new ListBoxModel();
-            m.add("-- Select (optional) --", "");
-            m.add("GitHub",       "GITHUB");
-            m.add("GitLab",       "GITLAB");
-            m.add("Azure Repos",  "AZURE_REPOS");
             return m;
         }
 

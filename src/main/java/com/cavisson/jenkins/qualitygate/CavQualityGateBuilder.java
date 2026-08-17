@@ -174,8 +174,6 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
 
         QualityGateEvaluator.evaluate(listener, resolvedBaseUrl, apiToken, pipelineId, pipelineRunId,
                 resolvedQualityGateName, expand(env, qualityGateTimeout), pipelineParams);
-
-        CavLogger.info(listener, "Cavisson Quality Gate evaluation completed.");
     }
 
     private static String expand(EnvVars env, String value) {

@@ -1,129 +1,248 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-  <parent>
-    <groupId>org.jenkins-ci.plugins</groupId>
-    <artifactId>plugin</artifactId>
-    <version>4.40</version>
-    <relativePath />
-  </parent>
+    <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.cavisson.jenkins.plugins</groupId>
-  <artifactId>cavisson-jenkin-plugin</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-  <packaging>hpi</packaging>
+    <!-- ========================================================= -->
+    <!-- Jenkins Plugin Parent                                     -->
+    <!-- ========================================================= -->
 
-  <name>Cavisson Plugin</name>
-  <url>http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin</url>
+    <parent>
+        <groupId>org.jenkins-ci.plugins</groupId>
+        <artifactId>plugin</artifactId>
+        <version>4.53</version>
+        <relativePath/>
+    </parent>
 
-  <licenses>
-    <license>
-      <name>MIT License</name>
-      <url>https://opensource.org/licenses/MIT</url>
-    </license>
-  </licenses>
+    <groupId>com.cavisson.jenkins.plugins</groupId>
+    <artifactId>cavisson-jenkin-plugin</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>hpi</packaging>
 
-  <developers>
-    <developer>
-      <id>cavisson</id>
-      <name>Cavisson</name>
-    </developer>
-  </developers>
+    <name>Cavisson Plugin</name>
+    <description>Cavisson Jenkins Plugin</description>
 
-  <scm>
-    <connection>scm:git:http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin.git</connection>
-    <developerConnection>scm:git:http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin.git</developerConnection>
     <url>http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin</url>
-    <tag>HEAD</tag>
-  </scm>
 
-  <properties>
-    <jenkins.version>2.346.3</jenkins.version>
-    <java.level>8</java.level>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
 
-  <dependencies>
-    <!-- Credentials plugin: used generically (StandardCredentials/CredentialsProvider) to
-         optionally resolve an existing CavServiceConnection credential from cav-security-pipeline
-         via reflection, without a compile-time dependency on that plugin. -->
-    <dependency>
-      <groupId>org.jenkins-ci.plugins</groupId>
-      <artifactId>credentials</artifactId>
-      <version>2.6.2</version>
-    </dependency>
+    <developers>
+        <developer>
+            <id>cavisson</id>
+            <name>Cavisson</name>
+        </developer>
+    </developers>
 
-    <dependency>
-      <groupId>org.jenkins-ci.plugins</groupId>
-      <artifactId>structs</artifactId>
-      <version>308.v852b473a2b8c</version>
-    </dependency>
+    <scm>
+        <connection>
+            scm:git:http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin.git
+        </connection>
+        <developerConnection>
+            scm:git:http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin.git
+        </developerConnection>
+        <url>
+            http://10.10.30.23:8000/build.cavisson/cavisson-jenkin-plugin
+        </url>
+        <tag>HEAD</tag>
+    </scm>
 
-    <!-- Plain Credentials plugin: lets the Direct connection mode's API Token be selected
-         from an existing "Secret text" credential instead of typed inline. -->
-    <dependency>
-      <groupId>org.jenkins-ci.plugins</groupId>
-      <artifactId>plain-credentials</artifactId>
-      <version>1.8</version>
-    </dependency>
+    <!-- ========================================================= -->
+    <!-- Properties                                                -->
+    <!-- ========================================================= -->
 
-    <!-- Pipeline Step API: lets tasks in this plugin be called from Pipeline scripts with a
-         return value (e.g. cavissonRunTest(...) returning testStatus/reportUrl/runNo). -->
-    <dependency>
-      <groupId>org.jenkins-ci.plugins.workflow</groupId>
-      <artifactId>workflow-step-api</artifactId>
-      <version>639.v6eca_cd8c04a_a_</version>
-    </dependency>
+    <properties>
 
-    <!-- JUnit plugin: publishes downloaded Cavisson JUnit reports to the build's Test Results. -->
-    <dependency>
-      <groupId>org.jenkins-ci.plugins</groupId>
-      <artifactId>junit</artifactId>
-      <version>1150.v5c2848328b_60</version>
-    </dependency>
+        <!-- Jenkins baseline -->
+        <jenkins.version>2.361.4</jenkins.version>
 
-    <!-- Small, dependency-free JSON reader/writer for the DashboardServer REST calls -->
-    <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-      <version>20240303</version>
-    </dependency>
+        <!-- ===================================================== -->
+        <!-- JAVA 21                                               -->
+        <!-- ===================================================== -->
 
-    <!-- Used by the merged-in security-scan task (com.cavisson.jenkins.security) for nullability annotations. -->
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-      <version>3.0.2</version>
-    </dependency>
-  </dependencies>
+        <maven.compiler.release>21</maven.compiler.release>
 
-  <!-- Pin transitive plugin versions that conflict within the junit plugin's own dependency
-       graph (echarts-api and bootstrap5-api each pull a different font-awesome-api release). -->
-  <dependencyManagement>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- ===================================================== -->
+        <!-- Java 21 compatible Jenkins build plugins              -->
+        <!-- ===================================================== -->
+
+        <hpi-plugin.version>3.44</hpi-plugin.version>
+
+        <!-- Parent's default (1.30) predates Java 21 and can't parse
+             class file major version 65. 1.34+ requires Maven 3.9.6;
+             1.33 uses ASM 9.6 (Java 21-safe) but only needs Maven 3.8.1. -->
+        <access-modifier-checker.version>1.33</access-modifier-checker.version>
+
+    </properties>
+
+    <!-- ========================================================= -->
+    <!-- Dependencies                                              -->
+    <!-- ========================================================= -->
+
     <dependencies>
-      <dependency>
-        <groupId>io.jenkins.plugins</groupId>
-        <artifactId>font-awesome-api</artifactId>
-        <version>6.1.1-1</version>
-      </dependency>
+
+        <!-- Jenkins Credentials -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>credentials</artifactId>
+            <version>2.6.2</version>
+        </dependency>
+
+        <!-- Jenkins Structs -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>structs</artifactId>
+            <version>308.v852b473a2b8c</version>
+        </dependency>
+
+        <!-- Plain Credentials -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>plain-credentials</artifactId>
+            <version>1.8</version>
+        </dependency>
+
+        <!-- Pipeline Step API -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins.workflow</groupId>
+            <artifactId>workflow-step-api</artifactId>
+            <version>639.v6eca_cd8c04a_a_</version>
+        </dependency>
+
+        <!-- JUnit Plugin -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>junit</artifactId>
+            <version>1150.v5c2848328b_60</version>
+        </dependency>
+
+        <!-- JSON -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version>
+        </dependency>
+
+        <!-- JSR305 -->
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+
     </dependencies>
-  </dependencyManagement>
 
-  <repositories>
-    <repository>
-      <id>repo.jenkins-ci.org</id>
-      <url>https://repo.jenkins-ci.org/public/</url>
-    </repository>
-  </repositories>
+    <!-- ========================================================= -->
+    <!-- Dependency Management                                     -->
+    <!-- ========================================================= -->
 
-  <pluginRepositories>
-    <pluginRepository>
-      <id>repo.jenkins-ci.org</id>
-      <url>https://repo.jenkins-ci.org/public/</url>
-    </pluginRepository>
-  </pluginRepositories>
+    <dependencyManagement>
+
+        <dependencies>
+
+            <dependency>
+                <groupId>io.jenkins.plugins</groupId>
+                <artifactId>font-awesome-api</artifactId>
+                <version>6.1.1-1</version>
+            </dependency>
+
+        </dependencies>
+
+    </dependencyManagement>
+
+    <!-- ========================================================= -->
+    <!-- Build Plugins                                              -->
+    <!-- ========================================================= -->
+
+    <build>
+
+        <plugins>
+
+            <!-- ================================================= -->
+            <!-- Java Compiler                                     -->
+            <!-- ================================================= -->
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+
+                <configuration>
+                    <release>21</release>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+
+            <!-- ================================================= -->
+            <!-- Maven Enforcer                                    -->
+            <!-- ================================================= -->
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <!-- extra-enforcer-rules 1.6.1 (inherited default) doesn't recognize
+                     JDK "21" as a valid enforceBytecodeVersion/maxJdkVersion literal -->
+                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>extra-enforcer-rules</artifactId>
+                        <version>1.10.0</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <!-- ================================================= -->
+            <!-- Disable inherited license-header plugin: its      -->
+            <!-- bundled Groovy/ASM cannot parse Java 21 class     -->
+            <!-- files ("Unsupported class file major version 65") -->
+            <!-- ================================================= -->
+
+            <plugin>
+                <groupId>com.cloudbees</groupId>
+                <artifactId>maven-license-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+
+    </build>
+
+    <!-- ========================================================= -->
+    <!-- Jenkins Maven Repository                                  -->
+    <!-- ========================================================= -->
+
+    <repositories>
+
+        <repository>
+            <id>repo.jenkins-ci.org</id>
+            <url>https://repo.jenkins-ci.org/public/</url>
+        </repository>
+
+    </repositories>
+
+    <pluginRepositories>
+
+        <pluginRepository>
+            <id>repo.jenkins-ci.org</id>
+            <url>https://repo.jenkins-ci.org/public/</url>
+        </pluginRepository>
+
+    </pluginRepositories>
 
 </project>

@@ -64,22 +64,10 @@
         <f:textbox placeholder="docs/MyPRD.feature" checkMethod="post"/>
       </f:entry>
 
-      <f:entry title="Git Provider"
-               field="gitProvider"
-               description="Git hosting provider for the repository above.">
-        <f:select/>
-      </f:entry>
-
-      <f:entry title="Git Username"
-               field="gitUsername"
-               description="Optional. Required only for private repositories over HTTPS. Falls back to the Service Connection's Git Username if left empty.">
-        <f:textbox placeholder="Leave empty for public repositories"/>
-      </f:entry>
-
-      <f:entry title="Git PAT or SSH Key"
-               field="gitCredential"
-               description="Optional. Personal Access Token (PAT) for HTTPS authentication, or SSH private key content for SSH authentication. Required only for private repositories. Falls back to the Service Connection's Git PAT/SSH Key if left empty. Stored securely and never logged.">
-        <f:password placeholder="Leave empty for public repositories"/>
+      <f:entry title="Git Integration Name"
+               field="gitIntegrationName"
+               description="Name of a Git Integration saved in the Cavisson application (Manage Cavisson App &gt; Extension Config &gt; Git Source Code). Its username/PAT are resolved from the server at build time. Required when Execution Source is Git Repository - there is no Jenkins-credential alternative.">
+        <f:textbox placeholder="MY_GIT_INTEGRATION" checkMethod="post"/>
       </f:entry>
     </div>
 

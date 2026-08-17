@@ -444,7 +444,7 @@ final class CavissonRunTestExecutor {
 
     /** "fail" and "failed" are both observed as terminal (non-running) failure statuses. */
     static boolean isTerminalStatus(String status) {
-        return "pass".equals(status) || "fail".equals(status) || "failed".equals(status) || "error".equals(status);
+        return "pass".equals(status) || "fail".equals(status) || "failed".equals(status);
     }
 
     private static String firstNonBlank(String preferred, String fallback) {

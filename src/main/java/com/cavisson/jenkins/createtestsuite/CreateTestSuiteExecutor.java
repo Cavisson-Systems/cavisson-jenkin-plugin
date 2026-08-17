@@ -134,10 +134,9 @@ final class CreateTestSuiteExecutor {
         }
 
         String testsuite = responseJson.optString("testsuite", "");
-        log.info("Test Suite created: " + testsuite);
         log.info("Test Suite Creation : " + AnsiColors.bold(AnsiColors.status(responseJson.optString("status", ""))));
         if (!testsuite.isEmpty()) {
-            log.infoHyperlink("Test Suite : ", testsuiteUrl(baseUrl, testsuite), "View Test Suite");
+            log.infoHyperlink("Test Suite : ", testsuiteUrl(baseUrl, testsuite), testsuite);
         }
         logSourceCodeChanges(log, responseJson);
         logTestSuiteDetails(log, responseJson, baseUrl, hasDiffSource, tagsArray, resolvedMergeId, resolvedCommitId);

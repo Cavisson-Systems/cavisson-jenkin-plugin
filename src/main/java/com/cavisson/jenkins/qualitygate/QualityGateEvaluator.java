@@ -69,7 +69,11 @@ final class QualityGateEvaluator {
 
         String status = responseJson.optString("status", "");
         String failureType = responseJson.optString("failureType", "");
-        if ("FAIL".equalsIgnoreCase(status) && "FAIL".equalsIgnoreCase(failureType)) {
+        boolean failed = "FAIL".equalsIgnoreCase(status) && "FAIL".equalsIgnoreCase(failureType);
+
+        CavLogger.info(listener, "Quality Gate: " + (failed ? "failed" : "success"));
+
+        if (failed) {
             String errorMessage = responseJson.optString("errorMessage",
                     "Quality gate '" + qualityGateName + "' evaluation failed.");
             throw new AbortException(errorMessage);
