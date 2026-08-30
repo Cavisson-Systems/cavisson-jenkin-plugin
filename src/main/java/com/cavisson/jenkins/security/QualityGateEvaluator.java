@@ -67,12 +67,25 @@ final class QualityGateEvaluator {
             return;
         }
 
+        String status = responseJson.optString("status", "");
         String failureType = responseJson.optString("failureType", "");
-        if ("FAIL".equalsIgnoreCase(failureType)) {
-            String errorMessage = responseJson.optString("errorMessage",
-                    "Quality gate '" + qualityGateName + "' evaluation failed.");
-            throw new AbortException(errorMessage);
+        String errorMessage = responseJson.optString("errorMessage", "");
+
+        // failureType is only present for a real condition violation; a structural error (e.g. an
+        // unknown gate name) reports status:"FAIL" with no failureType and an errorMessage instead.
+        boolean conditionFailed = "FAIL".equalsIgnoreCase(status) && "FAIL".equalsIgnoreCase(failureType);
+        
+        CavLogger.info(listener, "Quality Gate: " + (status.isEmpty() ? "" : status));
+        
+        if (conditionFailed) {
+            //CavLogger.info(listener, "Quality Gate: failed");
+            throw new AbortException(errorMessage.isEmpty()
+                    ? "Quality gate '" + qualityGateName + "' evaluation failed." : errorMessage);
+        }else if ("FAIL".equalsIgnoreCase(status) && !errorMessage.isEmpty()) {
+            CavLogger.info(listener, "Quality Gate Error: " + errorMessage);
         }
+        
+        
     }
 
     private static int parseTimeoutSeconds(String qualityGateTimeout) {
