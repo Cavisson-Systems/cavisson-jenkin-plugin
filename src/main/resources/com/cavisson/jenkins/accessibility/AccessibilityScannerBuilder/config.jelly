@@ -1,0 +1,24 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:st="jelly:stapler">
+
+  <f:entry title="${%Cavisson Service Connection}" field="cavConnection">
+    <f:select/>
+  </f:entry>
+
+  <f:entry title="${%Application URL}" field="applicationUrl">
+    <f:textbox/>
+  </f:entry>
+
+  <f:advanced title="${%Advanced Options}">
+
+    <f:entry title="${%Controller Path}" field="controller">
+      <f:textbox default="/home/cavisson/work"/>
+    </f:entry>
+
+    <f:entry title="${%Log Mode}" field="logLevel">
+      <f:select/>
+    </f:entry>
+
+  </f:advanced>
+
+</j:jelly>

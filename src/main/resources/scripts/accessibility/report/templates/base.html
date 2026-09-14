@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Accessibility report for {{targetUrl}}" />
+  <title>Accessibility Report — {{pageTitle}}</title>
+  <style>{{{cssContent}}}</style>
+</head>
+<body>
+
+<!-- ══ Sticky Header ════════════════════════════════════════════════════════ -->
+<header class="site-header" role="banner">
+  <div class="site-header__inner">
+    <span class="site-header__title">Accessibility Report</span>
+    <span class="site-header__divider" aria-hidden="true"></span>
+    <span class="site-header__url" title="{{targetUrl}}">{{targetUrl}}</span>
+    <span class="site-header__date">{{scanDate}}</span>
+  </div>
+</header>
+
+<!-- ══ Main ═════════════════════════════════════════════════════════════════ -->
+<main id="summary" class="page-wrap" role="main">
+
+  <!-- ── Hero / Score ──────────────────────────────────────────────────── -->
+  <section class="hero-card" aria-label="Scan summary">
+    <div class="hero-meta">
+      <h1 class="hero-meta__title">{{pageTitle}}</h1>
+      <a class="hero-meta__url" href="{{targetUrl}}" target="_blank" rel="noopener noreferrer">{{targetUrl}}</a>
+      <p class="hero-meta__date">Scanned on {{scanDate}}</p>
+    </div>
+    {{scoreGaugeSVG score}}
+  </section>
+
+  <!-- ── Severity Counts ───────────────────────────────────────────────── -->
+  <section class="stats-row" aria-label="Violation counts by severity">
+    <div class="stat-card stat-card--critical">
+      <span class="stat-card__label">Critical</span>
+      <span class="stat-card__value">{{criticalCount}}</span>
+    </div>
+    <div class="stat-card stat-card--serious">
+      <span class="stat-card__label">Serious</span>
+      <span class="stat-card__value">{{seriousCount}}</span>
+    </div>
+    <div class="stat-card stat-card--moderate">
+      <span class="stat-card__label">Moderate</span>
+      <span class="stat-card__value">{{moderateCount}}</span>
+    </div>
+    <div class="stat-card stat-card--minor">
+      <span class="stat-card__label">Minor</span>
+      <span class="stat-card__value">{{minorCount}}</span>
+    </div>
+  </section>
+
+  <!-- ── Summary Totals ────────────────────────────────────────────────── -->
+  <section class="meta-stats" aria-label="Rule result totals">
+    <div class="meta-stat">
+      <div class="meta-stat__value">{{totalViolations}}</div>
+      <div class="meta-stat__label">Violations</div>
+    </div>
+    <div class="meta-stat">
+      <div class="meta-stat__value">{{passedCount}}</div>
+      <div class="meta-stat__label">Passed</div>
+    </div>
+    <div class="meta-stat">
+      <div class="meta-stat__value">{{incompleteCount}}</div>
+      <div class="meta-stat__label">Needs Review</div>
+    </div>
+    <div class="meta-stat">
+      <div class="meta-stat__value">{{inapplicableCount}}</div>
+      <div class="meta-stat__label">Not Applicable</div>
+    </div>
+  </section>
+
+  <!-- ── Page Screenshot ───────────────────────────────────────────────── -->
+  <section class="app-screenshot-card" aria-label="Page screenshot">
+    <p class="app-screenshot-card__title">Page Screenshot</p>
+    <img src="{{encode_app_image}}" alt="Full-page screenshot of {{pageTitle}}" loading="lazy" />
+  </section>
+
+  <!-- ── Filter Controls ───────────────────────────────────────────────── -->
+  {{#if violations}}
+  <div class="controls-bar" aria-label="Filter violations">
+    <div class="filter-chips" role="group" aria-label="Filter by severity">
+      <button class="filter-chip active" data-severity="all"      aria-pressed="true">All</button>
+      <button class="filter-chip"        data-severity="critical" aria-pressed="false">Critical</button>
+      <button class="filter-chip"        data-severity="serious"  aria-pressed="false">Serious</button>
+      <button class="filter-chip"        data-severity="moderate" aria-pressed="false">Moderate</button>
+      <button class="filter-chip"        data-severity="minor"    aria-pressed="false">Minor</button>
+    </div>
+    <div class="control-buttons">
+      <button id="btn-expand-all"   class="btn">Expand All</button>
+      <button id="btn-collapse-all" class="btn">Collapse All</button>
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- ══ VIOLATIONS ════════════════════════════════════════════════════════ -->
+  {{#if violations}}
+    {{#each_category categoryGroups}}
+    <section class="category-section" id="cat-{{slugify name}}" aria-label="{{name}} violations">
+      <div class="category-section__header">
+        <h2 class="category-section__name">{{name}}</h2>
+        <span class="category-badge">{{length violations}}</span>
+      </div>
+
+      {{#each violations}}
+      <div class="rule-card" data-rule-id="{{id}}" data-impact="{{impact}}" data-description="{{description}}">
+
+        <button class="accordion-header" aria-expanded="false"
+                aria-controls="panel-{{id}}" id="header-{{id}}">
+          <span class="impact-badge {{impactClass impact}}">{{impactLabel impact}}</span>
+          <span class="accordion-header__rule-id">{{id}}</span>
+          <span class="accordion-header__desc">{{description}}</span>
+          <span class="accordion-header__count">{{length nodes}} element{{#if (gt (length nodes) 1)}}s{{/if}}</span>
+          <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="accordion-panel" id="panel-{{id}}" role="region" aria-labelledby="header-{{id}}">
+          <div class="panel-inner">
+
+            <!-- Rule meta -->
+            <div class="rule-meta">
+              <div class="rule-meta__item">
+                <span class="rule-meta__key">Description</span>
+                <span class="rule-meta__val">{{description}}</span>
+              </div>
+              <div class="rule-meta__item">
+                <span class="rule-meta__key">Help</span>
+                <span class="rule-meta__val">{{help}}</span>
+              </div>
+              <div class="rule-meta__item">
+                <span class="rule-meta__key">Learn More</span>
+                <span class="rule-meta__val">
+                  <a href="{{helpUrl}}" target="_blank" rel="noopener noreferrer">View documentation ↗</a>
+                </span>
+              </div>
+              <div class="rule-meta__item">
+                <span class="rule-meta__key">WCAG</span>
+                <span class="rule-meta__val">
+                  <div class="tags-wrap">{{formatTags tags}}</div>
+                </span>
+              </div>
+            </div>
+
+            <!-- Fix banner -->
+            <div class="fix-banner">
+              <span class="fix-banner__icon" aria-hidden="true">💡</span>
+              <span class="fix-banner__text">{{suggestedFix id}}</span>
+            </div>
+
+            <!-- Affected elements -->
+            <p class="affected-label">Affected Elements ({{length nodes}})</p>
+
+            {{#each nodes}}
+            <div class="node-card">
+              <div class="node-card__header">
+                <span class="node-card__num">Element #{{nodeIndex}}</span>
+                {{#if nodeLabel}}<span class="node-card__label">"{{nodeLabel}}"</span>{{/if}}
+              </div>
+
+              <div class="node-grid">
+                <!-- Left: screenshot -->
+                <div class="node-screenshot">
+                  <span class="node-screenshot__label">Element Screenshot</span>
+                  {{#if screenshotFile}}
+                    <img src="{{encode_image screenshotFile}}"
+                         alt="Screenshot of failing element #{{nodeIndex}}" loading="lazy" />
+                  {{else}}
+                    <div class="node-screenshot--none">
+                      <span class="node-screenshot--none__icon" aria-hidden="true">📷</span>
+                      <span>{{#if screenshotReason}}{{screenshotReason}}{{else}}Screenshot not captured{{/if}}</span>
+                    </div>
+                  {{/if}}
+                </div>
+
+                <!-- Right: details -->
+                <div class="node-details">
+                  <div class="detail-block">
+                    <span class="detail-block__label">HTML Snippet</span>
+                    <pre>{{escapeHTML html}}</pre>
+                  </div>
+                  <div class="detail-block">
+                    <span class="detail-block__label">CSS Selector</span>
+                    <div>{{selectorList target}}</div>
+                  </div>
+                  <div class="detail-block">
+                    <span class="detail-block__label">XPath</span>
+                    <code class="xpath-text">{{#if xpath}}{{xpath}}{{else}}—{{/if}}</code>
+                  </div>
+                  <div class="detail-block">
+                    <span class="detail-block__label">Failure Summary</span>
+                    <p class="failure-text">{{failureSummary}}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {{/each}}
+
+          </div>
+        </div>
+      </div>
+      {{/each}}
+    </section>
+    {{/each_category}}
+
+  {{else}}
+    <div class="no-violations" role="status">
+      <div class="no-violations__icon" aria-hidden="true">✅</div>
+      <p class="no-violations__title">No violations found!</p>
+      <p class="no-violations__sub">This page passed all tested WCAG 2.1 AA rules.</p>
+    </div>
+  {{/if}}
+
+  <!-- ══ PASSED AUDITS ══════════════════════════════════════════════════════ -->
+  {{#if passes}}
+  <section class="audit-section" id="passed-audits" aria-label="Passed audits">
+    <div class="audit-section__header audit-section__header--pass">
+      <div class="audit-section__title-row">
+        <span class="audit-section__dot audit-section__dot--pass" aria-hidden="true"></span>
+        <h2 class="audit-section__title">{{passedCount}} audits passed</h2>
+        <button class="audit-section__toggle" aria-expanded="false"
+                aria-controls="passed-list" data-list="passed-list">
+          Show <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="audit-list" id="passed-list" hidden>
+      {{#each passes}}
+      <div class="audit-item audit-item--pass">
+        <span class="audit-item__dot audit-item__dot--pass" aria-hidden="true"></span>
+        <div class="audit-item__content">
+          <span class="audit-item__title">{{description}}</span>
+          <code class="audit-item__id">{{id}}</code>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+  {{/if}}
+
+  <!-- ══ NEEDS REVIEW ═══════════════════════════════════════════════════════ -->
+  {{#if incomplete}}
+  <section class="audit-section" id="incomplete-audits" aria-label="Needs review audits">
+    <div class="audit-section__header audit-section__header--review">
+      <div class="audit-section__title-row">
+        <span class="audit-section__dot audit-section__dot--review" aria-hidden="true"></span>
+        <h2 class="audit-section__title">{{incompleteCount}} items need review</h2>
+        <button class="audit-section__toggle" aria-expanded="false"
+                aria-controls="incomplete-list" data-list="incomplete-list">
+          Show <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <p class="audit-section__desc">These items may be accessibility issues. They require manual verification.</p>
+    </div>
+    <div class="audit-list" id="incomplete-list" hidden>
+      {{#each incomplete}}
+      <div class="audit-item audit-item--review">
+        <span class="audit-item__dot audit-item__dot--review" aria-hidden="true"></span>
+        <div class="audit-item__content">
+          <span class="audit-item__title">{{description}}</span>
+          <code class="audit-item__id">{{id}}</code>
+          {{#if (gt (length nodes) 0)}}<span class="audit-item__count">{{length nodes}} element(s)</span>{{/if}}
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+  {{/if}}
+
+  <!-- ══ NOT APPLICABLE ════════════════════════════════════════════════════ -->
+  {{#if inapplicable}}
+  <section class="audit-section" id="na-audits" aria-label="Not applicable audits">
+    <div class="audit-section__header audit-section__header--na">
+      <div class="audit-section__title-row">
+        <span class="audit-section__dot audit-section__dot--na" aria-hidden="true"></span>
+        <h2 class="audit-section__title">{{inapplicableCount}} not applicable</h2>
+        <button class="audit-section__toggle" aria-expanded="false"
+                aria-controls="na-list" data-list="na-list">
+          Show <svg class="accordion-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <p class="audit-section__desc">These audits found no matching elements on this page.</p>
+    </div>
+    <div class="audit-list" id="na-list" hidden>
+      {{#each inapplicable}}
+      <div class="audit-item audit-item--na">
+        <span class="audit-item__dot audit-item__dot--na" aria-hidden="true"></span>
+        <div class="audit-item__content">
+          <span class="audit-item__title">{{description}}</span>
+          <code class="audit-item__id">{{id}}</code>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+  {{/if}}
+
+</main>
+
+<!-- ══ Footer ════════════════════════════════════════════════════════════════ -->
+<footer class="site-footer" role="contentinfo">
+  Generated by <strong>Axe Local Scanner</strong> using axe-core &amp; Playwright ·
+  Scanned on {{scanDate}}
+</footer>
+
+<script>{{{jsContent}}}</script>
+</body>
+</html>
