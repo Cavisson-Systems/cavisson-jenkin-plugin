@@ -41,7 +41,7 @@ public final class CavissonDescriptionPublisher {
         String stageName = env == null ? "" : env.get("STAGE_NAME", "");
         String label = (stageName != null && !stageName.trim().isEmpty()) ? stageName : taskLabel;
         String row = "<tr><td><b>" + label + "</b></td><td><a href='" + reportUrl
-                + "' target='_blank'>📊 View Report</a></td></tr>";
+                + "' target='_blank' rel='noopener noreferrer'>📊 View Report</a></td></tr>";
 
         String existing = run.getDescription();
         String updated;

@@ -1,0 +1,12 @@
+{
+  "name": "cav-accessibility-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bundled accessibility scanner (Playwright + axe-core) used by the Cavisson Jenkins plugin's Accessibility Scanner task. Copied functionally from the Cav Accessibility Scanner Azure DevOps extension's task/scanner directory - scan.js/generate-report.js and the report/ renderer are environment-agnostic (driven only by the REPORTS_DIR env var) and are reused verbatim.",
+  "dependencies": {
+    "@axe-core/playwright": "^4.11.3",
+    "playwright": "^1.60.0",
+    "axe-core": "^4.9.1",
+    "handlebars": "^4.7.8"
+  }
+}

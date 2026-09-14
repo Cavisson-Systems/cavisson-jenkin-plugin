@@ -1,6 +1,9 @@
 package com.cavisson.jenkins.http;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -12,6 +15,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Map;
+import java.util.UUID;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -44,6 +48,70 @@ public final class HttpUtil {
 
     public static HttpResult getJson(String url, Map<String, String> headers, boolean allowInsecureSSL) throws IOException {
         return request("GET", url, null, headers, allowInsecureSSL);
+    }
+
+    /**
+     * Uploads a single local file as {@code multipart/form-data} (form field name {@code "file"}),
+     * the same request shape the Cavisson DashboardServer's {@code filemanager/uploadfile} endpoint
+     * expects. {@code headers} carries authentication (e.g. {@code Authorization: Bearer <cavToken>})
+     * - never logged by this method. Added for {@code AccessibilityScannerExecutor}'s report upload;
+     * shared by any future task needing plain file uploads.
+     */
+    public static HttpResult postMultipartFile(String url, File file, String formFieldName,
+                                                Map<String, String> headers, boolean allowInsecureSSL) throws IOException {
+        String boundary = "----CavJenkinsBoundary" + UUID.randomUUID().toString().replace("-", "");
+        String lineEnd = "\r\n";
+
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+
+        if (allowInsecureSSL && connection instanceof HttpsURLConnection) {
+            applyTrustAllSsl((HttpsURLConnection) connection);
+        }
+
+        connection.setRequestMethod("POST");
+        connection.setConnectTimeout(30000);
+        connection.setReadTimeout(300000);
+        connection.setDoOutput(true);
+        connection.setDoInput(true);
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+        if (headers != null) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                connection.setRequestProperty(entry.getKey(), entry.getValue());
+            }
+        }
+
+        try (DataOutputStream out = new DataOutputStream(connection.getOutputStream())) {
+            out.writeBytes("--" + boundary + lineEnd);
+            out.writeBytes("Content-Disposition: form-data; name=\"" + formFieldName + "\"; filename=\""
+                    + file.getName() + "\"" + lineEnd);
+            out.writeBytes("Content-Type: application/octet-stream" + lineEnd);
+            out.writeBytes(lineEnd);
+
+            try (FileInputStream fileIn = new FileInputStream(file)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = fileIn.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+
+            out.writeBytes(lineEnd);
+            out.writeBytes("--" + boundary + "--" + lineEnd);
+        }
+
+        int statusCode = connection.getResponseCode();
+        InputStream stream = statusCode >= 200 && statusCode < 400
+                ? connection.getInputStream()
+                : connection.getErrorStream();
+
+        String responseBody = stream == null ? "" : readFully(stream);
+
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new IOException("HTTP " + statusCode + " uploading to " + url + ": " + responseBody);
+        }
+
+        return new HttpResult(statusCode, responseBody);
     }
 
     private static HttpResult request(String method, String url, String body, Map<String, String> headers, boolean allowInsecureSSL) throws IOException {

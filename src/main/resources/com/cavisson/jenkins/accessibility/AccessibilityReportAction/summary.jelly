@@ -1,0 +1,28 @@
+<?jelly escape-by-default='true'?>
+<!--
+  Jenkins auto-renders this for any Action attached to a Run that has one. `${it}` is the
+  AccessibilityReportAction instance.
+
+  Deliberately NOT using the /lib/hudson t:summary taglib here (even though it's the usual
+  convention for this kind of build-page row) - t:summary requires an `icon` attribute, and an
+  icon reference that isn't resolvable on a given Jenkins core version (e.g. an Ionicons "symbol"
+  name on an older core that only understands classic image-file icons) can cause the *entire*
+  tag, including the link inside it, to fail to render. Plain markup here has zero dependency on
+  icon resolution, so the link itself can never be taken down by an icon problem - the small
+  cosmetic cost is no icon next to the link.
+
+  `escape-by-default='true'` means the *text content* below is XML-escaped on output (irrelevant
+  here, no dynamic text content) - the href attribute value itself is written via normal XML
+  attribute serialization, which XML-escapes '&' to '&amp;' as required for well-formed HTML/XML.
+  That is correct, expected behaviour, not corruption: browsers decode '&amp;' back to a literal
+  '&' when parsing the href, so the link still opens exactly the URL Java built. Only a
+  *double*-escaped '&amp;amp;' in the rendered source would indicate a real bug (e.g. something
+  re-escaping an already-escaped string) - that must not appear here.
+-->
+<j:jelly xmlns:j="jelly:core">
+  <div style="padding: 6px 0;">
+    <a href="${it.reportUrl}" target="_blank" rel="noopener noreferrer">
+      📊 View Accessibility Report
+    </a>
+  </div>
+</j:jelly>
