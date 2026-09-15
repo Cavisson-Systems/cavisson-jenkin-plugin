@@ -66,10 +66,9 @@ final class AccessibilityScannerExecutor {
 
     // Base for the shareable report link (Cavisson's guest-mode "Copy Link" gateway - see
     // UnifiedDashboard/share.html). 'open=accessibility-report' maps (via SHARE_URL_ROUTE_MAP in
-    // session.service.ts) to the Accessibility Test Report History list page - not a per-report
-    // deep link (no reportId param). Every build's link points to this same URL; the user finds
-    // their specific run's row in the table themselves (sorted by Created At, most recent first).
-    // This is the full URL - used as-is, nothing appended per-run.
+    // session.service.ts) to the Accessibility Test Report History page. That page now reads an
+    // optional 'reportId' query param (appended below, per-run) to auto-open that specific
+    // report's detail panel; without it, the page just shows the bare list.
     private static final String REPORT_SHARE_LINK_BASE = "/UnifiedDashboard/share.html?open=accessibility-report";
 
     // Bundled scanner files (relative to both the classpath resource root and the materialized
@@ -301,11 +300,12 @@ final class AccessibilityScannerExecutor {
         String reportId = publishReportMetadata(log, baseUrl, apiToken, resolvedUrl, run,
                 highestSeverity, finalHtmlPath, finalJsonPath);
 
-        // Shareable report link (guest-mode "Copy Link" gateway) - points at the report history
-        // list page, not a per-report deep link (see REPORT_SHARE_LINK_BASE above; no reportId
-        // appended). baseUrl already has any trailing slash stripped a few lines up when building
-        // uploadUrl, but strip again defensively since this is built independently.
-        String reportShareUrl = baseUrl.replaceAll("/+$", "") + REPORT_SHARE_LINK_BASE;
+        // Shareable report link (guest-mode "Copy Link" gateway) - per-run deep link straight to
+        // this build's report detail panel (see REPORT_SHARE_LINK_BASE above; reportId appended).
+        // baseUrl already has any trailing slash stripped a few lines up when building uploadUrl,
+        // but strip again defensively since this is built independently.
+        String reportShareUrl = baseUrl.replaceAll("/+$", "") + REPORT_SHARE_LINK_BASE
+                + "&reportId=" + reportId;
 
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_ACCESSIBILITY_STATUS", "SUCCESS");
@@ -333,7 +333,7 @@ final class AccessibilityScannerExecutor {
         // None of these failing should fail the build - the scan itself already succeeded.
         log.infoHyperlink("Report : ", reportShareUrl, "View Accessibility Report");
         try {
-            CavissonDescriptionPublisher.appendReportRow(run, env, reportShareUrl, "Cavisson - Accessibility Scanner");
+            CavissonDescriptionPublisher.appendReportRow(run, env, reportShareUrl, "Accessibility Scan");
         } catch (IOException e) {
             log.debug("Could not add report link to build description: " + e.getMessage());
         }
