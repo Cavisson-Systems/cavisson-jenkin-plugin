@@ -82,6 +82,64 @@ fi
 
 log_debug "Base directory for scanning: $BASE_DIR"
 
+
+#######################################
+# Installing JQ
+#######################################
+# Package-manager installs (apt-get/yum/dnf/apk) require root, which the Jenkins agent user
+# normally doesn't have. Instead, fetch the official static jq binary (no root needed) and cache
+# it under $HOME, mirroring how the SonarScanner CLI is self-installed/cached further below.
+JQ_VERSION="1.7.1"
+JQ_DIR="$HOME/.cav-tools/jq"
+
+install_jq() {
+    if command -v jq >/dev/null 2>&1; then
+        echo "[INFO] jq already installed: $(jq --version)"
+        return 0
+    fi
+
+    if [[ -x "$JQ_DIR/jq" ]]; then
+        export PATH="$JQ_DIR:$PATH"
+        echo "[INFO] jq already installed: $(jq --version)"
+        return 0
+    fi
+
+    echo "[INFO] jq is required but was not found. Downloading static jq $JQ_VERSION binary..."
+
+    local arch
+    case "$(uname -m)" in
+        x86_64) arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *)
+            echo "[ERROR] Unsupported architecture for jq download: $(uname -m)"
+            return 1
+            ;;
+    esac
+
+    mkdir -p "$JQ_DIR"
+
+    curl -sSLo "$JQ_DIR/jq" \
+        "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-${arch}" || {
+        echo "[ERROR] Failed to download jq."
+        return 1
+    }
+
+    chmod +x "$JQ_DIR/jq"
+
+    export PATH="$JQ_DIR:$PATH"
+
+    command -v jq >/dev/null 2>&1 || {
+        echo "[ERROR] jq installation failed."
+        return 1
+    }
+
+    echo "[INFO] jq installed: $(jq --version)"
+}
+install_jq || {
+    log_error "Failed to install jq. Please install it manually."
+    exit 1
+}
+
 ########################################
 # Get login
 ########################################
