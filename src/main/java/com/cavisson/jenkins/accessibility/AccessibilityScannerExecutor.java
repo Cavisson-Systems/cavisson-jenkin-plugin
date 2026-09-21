@@ -214,6 +214,17 @@ final class AccessibilityScannerExecutor {
             installScannerDependencies(launcher, listener, log, verbose, scriptsDir, env, scanEnv);
 
             printMilestone(log, verbose, "Accessibility scan started");
+            // INFO-mode-only heartbeat: without this, INFO mode goes straight from "Application
+            // URL configured" to "Report : ..." with a silent gap while npm install/Playwright/
+            // scan.js actually run (which can take anywhere from seconds to a couple of minutes) -
+            // easy to mistake for a stuck build. DEBUG mode already shows the real, live scanner
+            // output during this same window (see CapturingLineForwarder), so this line would be
+            // redundant noise there - only print it when NOT verbose (i.e. Log Mode = INFO; ERROR
+            // mode already excludes all log.info(...) lines via CavLogger's own gating, so no
+            // separate check is needed for that case).
+            if (!verbose) {
+                log.info("Scanning in progress...");
+            }
             runNode(launcher, listener, log, verbose, scriptsDir, env, scanEnv,
                     Arrays.asList("scan.js", resolvedUrl), "Accessibility Scan");
         } catch (IOException | InterruptedException e) {
