@@ -105,12 +105,13 @@ validation error for out-of-range values, unlike most other required fields in t
 
 Every task publishes its result values as plain environment variables, visible to later steps in the *same* build/Pipeline run (in addition to the `Map` a Pipeline step call returns directly):
 - `CavissonRunTest` → `CAV_TSR_NUMBER`, `CAV_TSR_STATUS`, `CAV_TSR_REPORT_URL` ("TSR" = Test Suite Run).
-- `CreateTestSuite` → `CAV_NEW_TESTSUITE_NAME`.
+- `CreateTestSuite` → `CAV_NEW_TESTSUITE_NAME`, plus `CAV_MERGE_ID` when a merge ID was used. If `gitIntegration` is set but both `commitId` and `mergeId` are blank, the merge ID is auto-detected via `GitMergeInfo` (needs a workspace; a Pipeline call outside `node{}` skips it).
 - `AnalyseTestFailure` → `CAV_ANALYSIS_COUNT`, `CAV_ANALYSIS_COMPLETED_COUNT`,
   `CAV_ANALYSIS_FAILED_COUNT`, `CAV_ANALYSIS_RESULTS_JSON` (the full per-target results list,
   serialized as JSON — this is the *only* way a Freestyle build can see per-target detail, since
   Freestyle can't read a Pipeline step's return value and a single scalar env var doesn't fit a
   variable-length result list).
+- `CavAITestCaseBuilder` → `CAV_AI_PIPELINE_ID`, plus `CAV_MERGE_ID` / `CAV_EPIC_ID` when found. `GitMergeInfo` runs `git log --merges -1` in the workspace and parses the GitLab `See merge request …!NN` trailer (merge ID) and the first JIRA-style key (`[A-Z][A-Z0-9]+-\d+`, e.g. from `Message | EM-527`) as the epic. The epic is used only when `jiraEpicPattern` is blank; a value the user provides always wins. Git read failures are non-fatal.
 
 This is done via `com.cavisson.jenkins.env`: each `<Task>Executor` calls `CavissonEnvironmentPublisher.publish(run, Map<String,String>)` once it has its result. That attaches a small internal `CavissonEnvironmentAction` (an `InvisibleAction`) to the `Run`; a single global `@Extension CavissonEnvironmentContributor extends EnvironmentContributor` merges every such action's vars into `Run#getEnvironment(...)` whenever anything asks for the build's environment. **Do not use `hudson.model.EnvironmentContributingAction` for this** — its `buildEnvVars(AbstractBuild, EnvVars)` signature only fires for Freestyle builds; `WorkflowRun` (Pipeline) isn't an `AbstractBuild`, so Pipeline runs would silently never see the vars. `EnvironmentContributor` is the one extension point that's generic over `Run` and works for both. A new task just needs to build its own vars map and call `CavissonEnvironmentPublisher.publish(run, vars)` — no other wiring required.
 

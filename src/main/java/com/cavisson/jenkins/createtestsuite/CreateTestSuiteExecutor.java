@@ -1,5 +1,6 @@
 package com.cavisson.jenkins.createtestsuite;
 
+import com.cavisson.jenkins.ai.testcase.source.GitMergeInfo;
 import com.cavisson.jenkins.connection.CavissonConnection;
 import com.cavisson.jenkins.env.CavissonEnvironmentPublisher;
 import com.cavisson.jenkins.http.HttpUtil;
@@ -7,6 +8,8 @@ import com.cavisson.jenkins.log.AnsiColors;
 import com.cavisson.jenkins.log.CavLogger;
 import hudson.AbortException;
 import hudson.EnvVars;
+import hudson.FilePath;
+import hudson.Launcher;
 import hudson.console.HyperlinkNote;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -40,6 +43,8 @@ final class CreateTestSuiteExecutor {
     static Map<String, Object> run(Run<?, ?> run,
                                     EnvVars env,
                                     TaskListener listener,
+                                    FilePath workspaceDir,
+                                    Launcher launcher,
                                     CavissonConnection connection,
                                     String project,
                                     String subProject,
@@ -69,6 +74,20 @@ final class CreateTestSuiteExecutor {
         String resolvedGitIntegration = expand(env, gitIntegration);
         String resolvedCommitId = expand(env, commitId);
         String resolvedMergeId = expand(env, mergeId);
+
+        String mergeIdSource = "user-provided";
+        // Git Integration set but neither Commit ID nor Merge ID given: auto-detect the Merge ID
+        // from the latest merge commit in the workspace ("See merge request ...!NN"). A value the
+        // user provides always wins. Needs a workspace, so Pipeline calls outside node{} skip it.
+        if (resolvedGitIntegration != null && !resolvedGitIntegration.trim().isEmpty()
+                && isBlank(resolvedCommitId) && isBlank(resolvedMergeId)
+                && workspaceDir != null && launcher != null) {
+            GitMergeInfo mergeInfo = GitMergeInfo.fetchLatest(workspaceDir, launcher, env, log);
+            if (!mergeInfo.getMergeId().isEmpty()) {
+                resolvedMergeId = mergeInfo.getMergeId();
+                mergeIdSource = "auto-detected from latest merge commit";
+            }
+        }
         String resolvedCodeMappingMode = expand(env, codeMappingMode);
 
         boolean hasDiffSource = resolvedGitIntegration != null && !resolvedGitIntegration.trim().isEmpty()
@@ -88,7 +107,7 @@ final class CreateTestSuiteExecutor {
         if (hasDiffSource) {
             log.info("Git Integration  : " + resolvedGitIntegration);
             if (resolvedMergeId != null && !resolvedMergeId.trim().isEmpty()) {
-                log.info("Merge ID         : " + resolvedMergeId);
+                log.info("Merge ID         : " + resolvedMergeId + " (" + mergeIdSource + ")");
             } else {
                 log.info("Commit ID        : " + resolvedCommitId);
             }
@@ -143,6 +162,9 @@ final class CreateTestSuiteExecutor {
 
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_NEW_TESTSUITE_NAME", lastPathSegment(testsuite));
+        if (!isBlank(resolvedMergeId)) {
+            envVars.put("CAV_MERGE_ID", resolvedMergeId.trim());
+        }
         CavissonEnvironmentPublisher.publish(run, envVars);
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -322,5 +344,9 @@ final class CreateTestSuiteExecutor {
 
     private static String expand(EnvVars env, String value) {
         return value == null ? null : env.expand(value);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }
