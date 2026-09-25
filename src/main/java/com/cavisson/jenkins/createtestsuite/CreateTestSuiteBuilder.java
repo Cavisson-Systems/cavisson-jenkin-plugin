@@ -203,7 +203,7 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
         CavissonConnection connection = CavissonConnectionResolver.resolve(
                 run, env, connectionMode, baseUrl, apiTokenCredentialId, cavServiceConnectionId);
 
-        Map<String, Object> result = CreateTestSuiteExecutor.run(run, env, listener,
+        Map<String, Object> result = CreateTestSuiteExecutor.run(run, env, listener, workspaceDir, launcher,
                 connection, project, subProject, workspace, profile, name, tags, automatedOnly,
                 gitIntegration, commitId, mergeId, codeMappingMode);
 
@@ -297,8 +297,13 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
             boolean hasDiffSource = gitIntegration != null && !gitIntegration.trim().isEmpty()
                     && ((commitId != null && !commitId.trim().isEmpty())
                             || (mergeId != null && !mergeId.trim().isEmpty()));
-            if (!hasTags && !hasDiffSource) {
+            if (!hasTags && !hasDiffSource && (gitIntegration == null || gitIntegration.trim().isEmpty())) {
                 return FormValidation.error("Provide tags, or a Git Integration with a Commit ID/Merge ID.");
+            }
+            boolean hasGitIntegration = gitIntegration != null && !gitIntegration.trim().isEmpty();
+            if (!hasTags && hasGitIntegration && !hasDiffSource) {
+                return FormValidation.ok("No Commit ID/Merge ID given: the Merge ID will be auto-detected"
+                        + " from the latest merge commit in the workspace.");
             }
             return FormValidation.ok();
         }

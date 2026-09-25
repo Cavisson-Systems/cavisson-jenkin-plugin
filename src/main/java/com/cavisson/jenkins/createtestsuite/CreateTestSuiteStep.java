@@ -5,6 +5,8 @@ import com.cavisson.jenkins.connection.CavissonConnectionResolver;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import hudson.EnvVars;
 import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -213,11 +215,15 @@ public class CreateTestSuiteStep extends Step {
             Run<?, ?> run = context.get(Run.class);
             TaskListener listener = context.get(TaskListener.class);
             EnvVars env = context.get(EnvVars.class);
+            // Optional (not in getRequiredContext): only present inside node{}, used to
+            // auto-detect the Merge ID from the workspace's latest merge commit.
+            FilePath workspaceDir = context.get(FilePath.class);
+            Launcher launcher = context.get(Launcher.class);
 
             CavissonConnection connection = CavissonConnectionResolver.resolve(run, env, step.getConnectionMode(),
                     step.getBaseUrl(), step.getApiTokenCredentialId(), step.getCavServiceConnectionId());
 
-            return CreateTestSuiteExecutor.run(run, env, listener, connection, step.getProject(), step.getSubProject(),
+            return CreateTestSuiteExecutor.run(run, env, listener, workspaceDir, launcher, connection, step.getProject(), step.getSubProject(),
                     step.getWorkspace(), step.getProfile(), step.getName(), step.getTags(), step.isAutomatedOnly(),
                     step.getGitIntegration(), step.getCommitId(), step.getMergeId(), step.getCodeMappingMode());
         }
@@ -301,8 +307,13 @@ public class CreateTestSuiteStep extends Step {
             boolean hasDiffSource = gitIntegration != null && !gitIntegration.trim().isEmpty()
                     && ((commitId != null && !commitId.trim().isEmpty())
                             || (mergeId != null && !mergeId.trim().isEmpty()));
-            if (!hasTags && !hasDiffSource) {
+            if (!hasTags && !hasDiffSource && (gitIntegration == null || gitIntegration.trim().isEmpty())) {
                 return FormValidation.error("Provide tags, or a Git Integration with a Commit ID/Merge ID.");
+            }
+            boolean hasGitIntegration = gitIntegration != null && !gitIntegration.trim().isEmpty();
+            if (!hasTags && hasGitIntegration && !hasDiffSource) {
+                return FormValidation.ok("No Commit ID/Merge ID given: the Merge ID will be auto-detected"
+                        + " from the latest merge commit in the workspace.");
             }
             return FormValidation.ok();
         }

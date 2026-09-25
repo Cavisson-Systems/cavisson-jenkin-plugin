@@ -55,7 +55,8 @@
   <f:entry title="${%Commit ID}" field="commitId" class="cav-diff-group cav-commit-group">
     <f:textbox default=""/>
   </f:entry>
-  <f:entry title="${%Merge/Pull Request ID}" field="mergeId" class="cav-diff-group cav-merge-group">
+  <f:entry title="${%Merge/Pull Request ID}" field="mergeId" class="cav-diff-group cav-merge-group"
+           description="If both Commit ID and Merge ID are blank, the Merge ID is auto-detected from the latest merge commit in the workspace.">
     <f:textbox default=""/>
   </f:entry>
   <f:entry title="${%Test Suite Name}" field="name">

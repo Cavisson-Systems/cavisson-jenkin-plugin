@@ -110,7 +110,7 @@
 
     <f:entry title="Epic Pattern"
              field="jiraEpicPattern"
-             description="Epic key or pattern on the platform selected above. Example: EM-527. Required when Execution Source is Epic Integration.">
+             description="Epic key or pattern on the platform selected above. Example: EM-527. If left blank, the epic key is auto-detected from the latest merge commit message in the workspace (e.g. 'Message | EM-527').">
       <f:textbox placeholder="EM-527"/>
     </f:entry>
 

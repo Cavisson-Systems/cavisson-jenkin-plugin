@@ -4,6 +4,7 @@ import com.cavisson.jenkins.ai.testcase.client.CavAIRestClient;
 import com.cavisson.jenkins.ai.testcase.client.PipelineState;
 import com.cavisson.jenkins.ai.testcase.client.UserNameService;
 import com.cavisson.jenkins.ai.testcase.exception.CavAIApiException;
+import com.cavisson.jenkins.ai.testcase.source.GitMergeInfo;
 import com.cavisson.jenkins.ai.testcase.source.JiraSourceRequest;
 import com.cavisson.jenkins.ai.testcase.source.SourceManager;
 import com.cavisson.jenkins.ai.testcase.util.CredentialUtil;
@@ -354,9 +355,27 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         log.debug("Idempotency Key: " + buildTag);
         log.debug("PRD Source Type: " + prdSourceType);
 
+        // -- Merge ID / Epic ID from latest merge commit ------------------------
+        // A user-supplied Epic Pattern always wins; blank falls back to the epic key found
+        // in the latest merge commit message ("Message | EM-527").
+        GitMergeInfo mergeInfo = GitMergeInfo.fetchLatest(workspace, launcher, env, log);
+        String effectiveEpicPattern;
+        String epicSource;
+        if (!jiraEpicPattern.isEmpty()) {
+            effectiveEpicPattern = env.expand(jiraEpicPattern);
+            epicSource = "user-provided";
+        } else {
+            effectiveEpicPattern = mergeInfo.getEpicId();
+            epicSource = "auto-detected from latest merge commit";
+        }
+        log.info("Merge ID     : " + (mergeInfo.getMergeId().isEmpty()
+                ? "(not found)" : mergeInfo.getMergeId() + " (auto-detected from latest merge commit)"));
+        log.info("Epic Pattern : " + (effectiveEpicPattern.isEmpty()
+                ? "(not found)" : effectiveEpicPattern + " (" + epicSource + ")"));
+
         // -- Validate ----------------------------------------------------------
         try {
-            validateParameters(credential);
+            validateParameters(credential, effectiveEpicPattern);
         } catch (IllegalArgumentException e) {
             log.error("Validation failed: " + e.getMessage());
             throw new AbortException("Validation failed: " + e.getMessage());
@@ -390,7 +409,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             JiraSourceRequest jiraRequest;
             try {
                 jiraRequest = SourceManager.buildJiraRequest(
-                        jiraEpicPattern, jiraIntegrationName, log);
+                        effectiveEpicPattern, jiraIntegrationName, log);
             } catch (IOException e) {
                 log.error("JIRA source error: " + e.getMessage());
                 throw new AbortException("JIRA source error: " + e.getMessage());
@@ -487,6 +506,8 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         // later Pipeline/Freestyle steps can reference ${CAV_AI_PIPELINE_ID}.
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_AI_PIPELINE_ID", pipelineId);
+        if (!mergeInfo.getMergeId().isEmpty()) envVars.put("CAV_MERGE_ID", mergeInfo.getMergeId());
+        if (!effectiveEpicPattern.isEmpty())   envVars.put("CAV_EPIC_ID",  effectiveEpicPattern);
         CavissonEnvironmentPublisher.publish(run, envVars);
 
         // Console narration of the trigger itself is intentionally DEBUG-only: the backend's
@@ -644,6 +665,10 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     // -- Validation ------------------------------------------------------------
 
     void validateParameters(CavServiceConnection credential) {
+        validateParameters(credential, jiraEpicPattern);
+    }
+
+    void validateParameters(CavServiceConnection credential, String effectiveEpicPattern) {
         requireNonBlank(cavServiceConnectionId, "cavServiceConnectionId");
         requireNonBlank(workspaceRoot,  "workspaceRoot");
         requireNonBlank(project,        "project");
@@ -658,8 +683,9 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
 
         // JIRA-specific validation
         if (SourceManager.JIRA.equalsIgnoreCase(prdSourceType)) {
-            requireNonBlank(jiraEpicPattern,
-                    "jiraEpicPattern (required when prdSourceType=JIRA)");
+            requireNonBlank(effectiveEpicPattern,
+                    "jiraEpicPattern (required when prdSourceType=JIRA and no epic key"
+                    + " was found in the latest merge commit message)");
             requireNonBlank(jiraIntegrationName,
                     "jiraIntegrationName (required when prdSourceType=JIRA)");
             return; // publishUserStories fields are not required for JIRA
@@ -758,8 +784,9 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                 @QueryParameter String prdSourceType) {
             if (SourceManager.JIRA.equalsIgnoreCase(prdSourceType)
                     && blank(jiraEpicPattern)) {
-                return FormValidation.error(
-                        "JIRA Epic Pattern is required when Source Type is JIRA. Example: EM-527");
+                return FormValidation.ok(
+                        "Blank: the epic key (e.g. EM-527) will be auto-detected from the latest"
+                        + " merge commit message in the workspace.");
             }
             return FormValidation.ok();
         }
