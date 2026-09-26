@@ -100,7 +100,8 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
     private String dynamicClusterName = "";
     private String dynamicNamespace = "default";
     private String targetUrl = "";
-    private String dataSourceName = "Ticket";
+    private String dataSourceName = "";
+    private String securityScanStatusTimeout = "";
 
     @DataBoundConstructor
     public CavSecurityPipelineBuilder(@Nonnull String scanType) {
@@ -435,6 +436,15 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
         this.dataSourceName = dataSourceName;
     }
 
+    public String getSecurityScanStatusTimeout() {
+        return securityScanStatusTimeout;
+    }
+
+    @DataBoundSetter
+    public void setSecurityScanStatusTimeout(String securityScanStatusTimeout) {
+        this.securityScanStatusTimeout = securityScanStatusTimeout;
+    }
+
     @Override
     public void perform(@Nonnull Run<?, ?> run,
             @Nonnull FilePath workspace,
@@ -475,11 +485,24 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
 
             String resolvedDataSourceName = trimToEmpty(expand(env, dataSourceName));
 
-            if (resolvedDataSourceName.isEmpty()) {
-                resolvedDataSourceName = "Ticket";
-            }
+            // if (resolvedDataSourceName.isEmpty()) {
+            //     resolvedDataSourceName = "Ticket";
+            // }
 
             // CavLogger.info(listener, "Data Source Name : " + resolvedDataSourceName);
+            // Get Jenkins pipeline ID and pipeline run ID
+            String pipelineId = firstNonBlank(
+                    env.get("pipelineId"),
+                    firstNonBlank(env.get("PIPELINE_ID"), env.get("JOB_NAME"))
+            );
+
+            String pipelineRunId = firstNonBlank(
+                    env.get("pipelineRunId"),
+                    firstNonBlank(env.get("PIPELINE_RUN_ID"), env.get("BUILD_NUMBER"))
+            );
+
+            CavLogger.debug(listener, "Pipeline ID     : " + pipelineId);
+            CavLogger.debug(listener, "Pipeline Run ID : " + pipelineRunId);
 
             String resolvedProject = expand(env, project);
             if (resolvedProject == null || resolvedProject.trim().isEmpty()) {
@@ -549,7 +572,13 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                                 "SCA Scan",
                                 false,
                                 true,
-                                resolvedDataSourceName);
+                                resolvedDataSourceName,
+                                pipelineId,
+                                pipelineRunId
+                        );
+                        
+                        pollKubernetesScanStatus(listener, env, resolvedBaseUrl, apiToken, allowInsecureSSL,
+                                "SCA Scan", pipelineId, pipelineRunId, result);
 
                     } else {
                         throw new AbortException("Unsupported SCA run mode: " + runMode);
@@ -631,8 +660,11 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                                 "DAST Scan",
                                 true,
                                 false,
-                                resolvedDataSourceName);
-
+                                resolvedDataSourceName,
+                                pipelineId,
+                                pipelineRunId);
+                            pollKubernetesScanStatus(listener, env, resolvedBaseUrl, apiToken, allowInsecureSSL,
+                                "DAST Scan", pipelineId, pipelineRunId, result);
                     } else {
                         throw new AbortException("Unsupported DAST run mode: " + runMode);
                     }
@@ -687,14 +719,14 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
 
             } else if ("SCA".equals(scanType) && "kubernetes".equals(effectiveFinalRunMode)) {
                 CavLogger.info(listener,
-                        "Cavisson security SCA scan initiated, scanning will take 5-10 minutes to generate the report.");
+                        "Cavisson security SCA scan completed successfully.");
 
             } else if ("SCA".equals(scanType) && "standalone".equals(effectiveFinalRunMode)) {
                 CavLogger.info(listener, "Cavisson security SCA scan completed successfully.");
 
             } else if ("DAST".equals(scanType) && "kubernetes".equals(effectiveFinalRunMode)) {
                 CavLogger.info(listener,
-                        "Cavisson security DAST scan initiated, scanning will take 5-10 minutes to generate the report.");
+                        "Cavisson security DAST scan completed successfully.");
 
             } else if ("DAST".equals(scanType) && "standalone".equals(effectiveFinalRunMode)) {
                 CavLogger.info(listener, "Cavisson security DAST scan completed successfully.");
@@ -1093,6 +1125,51 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
         return value == null ? null : env.expand(value);
     }
 
+    /**
+     * Kubernetes-mode SCA/DAST only: after callSecurityScanApi(...) triggers the scan, polls
+     * pipelineScanStatus until overallStatus=="COMPLETED" (or the timeout elapses) and stashes the
+     * outcome into the result map under "scanStatusPoll" so Pipeline callers can inspect it. Skipped
+     * entirely when the triggering call itself did not succeed - polling status for a scan that was
+     * never started isn't useful, and this keeps kubernetes-mode's existing fire-and-forget/no-abort
+     * behavior intact for that case. A poll timeout is logged, not thrown, for the same reason.
+     */
+    private void pollKubernetesScanStatus(TaskListener listener, EnvVars env, String resolvedBaseUrl,
+            String apiToken, boolean allowInsecureSSL, String stageName, String pipelineId, String pipelineRunId,
+            Map<String, Object> result) throws InterruptedException {
+
+        if (!Boolean.TRUE.equals(result.get("success"))) {
+            CavLogger.debug(listener, stageName
+                    + " REST API call did not succeed; skipping pipelineScanStatus polling.");
+            return;
+        }
+
+        Integer resolvedTimeoutSeconds = parseOptionalSeconds(expand(env, securityScanStatusTimeout));
+
+        Map<String, Object> pollResult = SecurityScanApiClient.pollPipelineScanStatus(
+                listener,
+                resolvedBaseUrl,
+                apiToken,
+                allowInsecureSSL,
+                stageName,
+                pipelineId,
+                pipelineRunId,
+                null,
+                resolvedTimeoutSeconds);
+
+        result.put("scanStatusPoll", pollResult);
+    }
+
+    private static Integer parseOptionalSeconds(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
+    }
+    
     private void maybeEvaluateQualityGate(TaskListener listener, EnvVars env, String baseUrl, String apiToken)
             throws IOException {
         String resolvedQualityGate = expand(env, qualityGate);

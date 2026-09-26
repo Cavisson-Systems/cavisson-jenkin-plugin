@@ -20,10 +20,10 @@ final class ScanResultDefaults {
             return "SAST scan completed successfully.";
         }
         if ("SCA".equalsIgnoreCase(scanType)) {
-            return "SCA scan initiated, scanning will take 5-10 minutes to generate the report.";
+            return "SCA scan completed successfully.";
         }
         if ("DAST".equalsIgnoreCase(scanType)) {
-            return "DAST scan initiated, scanning will take 5-10 minutes to generate the report.";
+            return "DAST scan completed successfully.";
         }
         return "";
     }
