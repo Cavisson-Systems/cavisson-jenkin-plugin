@@ -72,6 +72,9 @@
     <f:entry title="${%Quality Gate Timeout Seconds}" field="qualityGateTimeout">
       <f:textbox default="120"/>
     </f:entry>
+    <f:entry title="${%Kubernetes Scan Status Poll Timeout Seconds (optional)}" field="securityScanStatusTimeout" class="cav-scan-sca cav-scan-dast">
+      <f:textbox/>
+    </f:entry>
   </f:advanced>
 
 </j:jelly>

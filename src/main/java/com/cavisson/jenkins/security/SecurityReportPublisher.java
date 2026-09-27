@@ -268,36 +268,6 @@ final class SecurityReportPublisher {
 
         listener.getLogger().println(message);
 
-        // Map<String, Object> result = new HashMap<>();
-        // result.put("success", false);
-        // result.put("reportUrl", "");
-        // result.put("scanId", "");
-        // result.put("status", "SKIPPED");
-        // result.put("message", message);
-
-        // Map<String, Object> result = new HashMap<>();
-        // result.put("success", true);
-        // result.put("reportUrl", reportUrl);
-        // result.put("scanId", scanId);
-        // result.put("status", "COMPLETED");
-        // result.put("message", "Cavisson security scan initiated, scanning will take 5-10 minutes to generate the report.");
-
-        // SecurityBuildAction.addFromResult(result, run);
-
-        // return result;
-
-        // ScanResultPrinter.print(
-        //         listener,
-        //         scanTypeDisplay,
-        //         "standalone",
-        //         toolDisplay,
-        //         false,
-        //         "SKIPPED",
-        //         "",
-        //         "",
-        //         message
-        // );
-
         String reportUrl = ScanResultDefaults.reportUrl(endpointUrl, scanTypeDisplay);
 
         Map<String, Object> result = new HashMap<>();

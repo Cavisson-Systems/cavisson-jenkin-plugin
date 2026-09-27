@@ -17,6 +17,9 @@ import java.util.Map;
  */
 final class SecurityScanApiClient {
 
+    private static final int DEFAULT_POLL_INTERVAL_SECONDS = 15;
+    private static final int DEFAULT_POLL_TIMEOUT_SECONDS = 7200; // 2 hours
+
     private SecurityScanApiClient() {
     }
 
@@ -70,7 +73,9 @@ static Map<String, Object> callSecurityScanApi(TaskListener listener,
                                                String stageName,
                                                boolean scanDast,
                                                boolean scanSca,
-                                               String dataSourceName) throws IOException {
+                                               String dataSourceName,
+                                               String pipelineId,
+                                               String pipelineRunId) throws IOException {
 
     String apiUrl = securityScanApiBaseUrl.replaceAll("/+$", "")
             + "/DashboardServer/v2/web/common/updateSecurityScanLastModified";
@@ -86,15 +91,17 @@ static Map<String, Object> callSecurityScanApi(TaskListener listener,
     }
 
     String resolvedDataSourceName =
-        dataSourceName == null || dataSourceName.trim().isEmpty()
-                ? "Ticket"
-                : dataSourceName.trim();
+        dataSourceName == null ? "" : dataSourceName.trim();
 
     JSONObject payload = new JSONObject();
     payload.put("scanDast", scanDast);
     payload.put("scanSca", scanSca);
-    payload.put("dataSourceName", resolvedDataSourceName);
+    payload.put("pipelineId", pipelineId);
+    payload.put("pipelineRunId", pipelineRunId);
 
+    if (!resolvedDataSourceName.isEmpty()) {
+        payload.put("dataSourceName", resolvedDataSourceName);
+    }
     CavLogger.debug(listener, "========== " + stageName + " REST API Call ==========");
     CavLogger.debug(listener, "REST API Base URL : " + securityScanApiBaseUrl);
     CavLogger.debug(listener, "Final API URL     : " + apiUrl);
@@ -155,4 +162,108 @@ static Map<String, Object> callSecurityScanApi(TaskListener listener,
 
     return result;
 }
+
+/**
+     * Polls the Cavisson DashboardServer's pipelineScanStatus endpoint for a Kubernetes-orchestrated
+     * SCA/DAST scan (the run just triggered by callSecurityScanApi(...) above) until its
+     * "overallStatus" reaches "COMPLETED", or until pollTimeoutSeconds elapses.
+     *
+     * Fully generic: the URL is built from securityScanApiBaseUrl + pipelineId/pipelineRunId, none of
+     * which are hardcoded here - all come from the caller, exactly like callSecurityScanApi(...)
+     * above. pollIntervalSeconds/pollTimeoutSeconds may be null (or <= 0) to fall back to
+     * DEFAULT_POLL_INTERVAL_SECONDS/DEFAULT_POLL_TIMEOUT_SECONDS.
+     *
+     * A failed/unparseable individual poll attempt is logged and retried rather than aborting -
+     * Kubernetes-mode SCA/DAST is already "fire-and-forget" (see CavSecurityPipelineBuilder#run's
+     * javadoc), so a transient network hiccup while polling shouldn't fail the build either. The
+     * only way this method throws is InterruptedException, propagated from Thread.sleep so the
+     * caller's own interrupt handling (Jenkins step cancellation) keeps working.
+     */
+    static Map<String, Object> pollPipelineScanStatus(TaskListener listener,
+                                                        String securityScanApiBaseUrl,
+                                                        String apiToken,
+                                                        boolean allowInsecureSSL,
+                                                        String stageName,
+                                                        String pipelineId,
+                                                        String pipelineRunId,
+                                                        Integer pollIntervalSeconds,
+                                                        Integer pollTimeoutSeconds) throws InterruptedException {
+
+        int intervalSeconds = (pollIntervalSeconds == null || pollIntervalSeconds <= 0)
+                ? DEFAULT_POLL_INTERVAL_SECONDS : pollIntervalSeconds;
+        int timeoutSeconds = (pollTimeoutSeconds == null || pollTimeoutSeconds <= 0)
+                ? DEFAULT_POLL_TIMEOUT_SECONDS : pollTimeoutSeconds;
+
+        String cleanToken = apiToken == null ? "" : apiToken.trim();
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Accept", "application/json");
+        if (!cleanToken.isEmpty() && !"none".equalsIgnoreCase(cleanToken)) {
+            headers.put("cavtoken", cleanToken);
+        }
+
+        String apiUrl = securityScanApiBaseUrl.replaceAll("/+$", "")
+                + "/DashboardServer/v2/web/common/pipelineScanStatus"
+                + "?pipelineId=" + urlEncode(pipelineId)
+                + "&pipelineRunId=" + urlEncode(pipelineRunId);
+
+        CavLogger.debug(listener, "========== " + stageName + " Pipeline Scan Status Poll ==========");
+        CavLogger.debug(listener, "Final API URL     : " + apiUrl);
+        CavLogger.debug(listener, "Poll interval (s) : " + intervalSeconds);
+        CavLogger.debug(listener, "Poll timeout (s)  : " + timeoutSeconds);
+        CavLogger.debug(listener, "===============================================================");
+
+        long deadline = System.currentTimeMillis() + (timeoutSeconds * 1000L);
+        String overallStatus = "";
+        JSONObject lastResponseJson = null;
+
+        while (true) {
+            try {
+                HttpUtil.HttpResult response = HttpUtil.getJson(apiUrl, headers, allowInsecureSSL);
+                String responseBody = response.body == null ? "" : response.body.trim();
+
+                CavLogger.debug(listener, stageName + " pipelineScanStatus response: " + responseBody);
+
+                if (!responseBody.isEmpty()) {
+                    lastResponseJson = new JSONObject(responseBody);
+                    overallStatus = lastResponseJson.optString("overallStatus", "");
+                }
+            } catch (Exception pollAttemptFailure) {
+                CavLogger.error(listener, stageName
+                        + " pipelineScanStatus poll attempt failed (will retry until timeout): "
+                        + pollAttemptFailure.getMessage());
+            }
+
+            CavLogger.info(listener, stageName + " status: "
+                    + (overallStatus.isEmpty() ? "(unknown)" : overallStatus));
+
+            if ("COMPLETED".equalsIgnoreCase(overallStatus)) {
+                break;
+            }
+
+            if (System.currentTimeMillis() >= deadline) {
+                CavLogger.error(listener, stageName + " pipelineScanStatus polling timed out after "
+                        + timeoutSeconds + "s; last overallStatus="
+                        + (overallStatus.isEmpty() ? "(unknown)" : overallStatus));
+                break;
+            }
+
+            Thread.sleep(intervalSeconds * 1000L);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("overallStatus", overallStatus);
+        result.put("completed", "COMPLETED".equalsIgnoreCase(overallStatus));
+        if (lastResponseJson != null) {
+            result.put("raw", lastResponseJson);
+        }
+        return result;
+    }
+
+    private static String urlEncode(String value) {
+        try {
+            return java.net.URLEncoder.encode(value == null ? "" : value, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException impossible) {
+            return value == null ? "" : value;
+        }
+    }
 }

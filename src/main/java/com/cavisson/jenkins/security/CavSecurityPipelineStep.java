@@ -350,6 +350,15 @@ public class CavSecurityPipelineStep extends Step {
         return delegate.getDataSourceName();
     }
 
+    public String getSecurityScanStatusTimeout() {
+        return delegate.getSecurityScanStatusTimeout();
+    }
+
+    @DataBoundSetter
+    public void setSecurityScanStatusTimeout(String securityScanStatusTimeout) {
+        delegate.setSecurityScanStatusTimeout(securityScanStatusTimeout);
+    }
+    
     @DataBoundSetter
     public void setDataSourceName(String dataSourceName) {
         delegate.setDataSourceName(dataSourceName);

@@ -28,9 +28,9 @@ final class ScanResultPrinter {
         CavLogger.debug(listener, "Scan ID    : " + safeOrNa(scanId));
         CavLogger.debug(listener, "Report URL : " + safeOrNa(reportUrl));
 
-        if (message != null && !message.trim().isEmpty()) {
-            CavLogger.debug(listener, "Message    : " + message);
-        }
+        // if (message != null && !message.trim().isEmpty()) {
+        //     CavLogger.debug(listener, "Message    : " + message);
+        // }
     }
 
     private static String safe(String value) {
