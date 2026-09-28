@@ -43,6 +43,7 @@ public class GitSource implements PrdSource {
     private final String                 branch;
     private final String                 prdFilePath;
     private final String                 gitUsernameOverride;
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]") // runtime-only value, never persisted to disk
     private final String                 gitCredentialOverride;
     private final CavServiceConnection credential;
 

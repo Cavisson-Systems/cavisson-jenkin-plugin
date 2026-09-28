@@ -8,6 +8,7 @@ package com.cavisson.jenkins.connection;
 public final class CavissonConnection {
 
     private final String baseUrl;
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]") // runtime-only value, never persisted to disk
     private final String apiToken;
 
     public CavissonConnection(String baseUrl, String apiToken) {

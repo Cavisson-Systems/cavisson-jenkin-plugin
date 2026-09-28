@@ -24,6 +24,9 @@ import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Freestyle/general build-step equivalent of the Cav Accessibility Scanner Azure DevOps task:
@@ -128,11 +131,17 @@ public class AccessibilityScannerBuilder extends Builder implements SimpleBuildS
             return "Cavisson - Accessibility Scanner";
         }
 
+        @POST
         public ListBoxModel doFillCavConnectionItems(@AncestorInPath Item item,
                                                       @QueryParameter String cavConnection) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(cavConnection);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(cavConnection);
             }
 
@@ -142,14 +151,17 @@ public class AccessibilityScannerBuilder extends Builder implements SimpleBuildS
                     .includeCurrentValue(cavConnection);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckCavConnection(@QueryParameter String value) {
             return requireNonEmpty(value, "Cavisson Service Connection is required.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckController(@QueryParameter String value) {
             return requireNonEmpty(value, "Controller is required.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApplicationUrl(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return FormValidation.error("Application URL is required.");
@@ -162,6 +174,7 @@ public class AccessibilityScannerBuilder extends Builder implements SimpleBuildS
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillLogLevelItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("INFO (Default)", "INFO");

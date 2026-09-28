@@ -12,6 +12,7 @@ public final class GitIntegrationConfig {
     public final String name;
     public final String repoUrl;
     public final String username;
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]") // runtime-only value, never persisted to disk
     public final String token;
 
     public GitIntegrationConfig(String name, String repoUrl, String username, String token) {

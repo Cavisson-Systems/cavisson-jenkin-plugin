@@ -85,6 +85,7 @@ public class CavAIRestClient {
         }
     };
 
+    @SuppressWarnings("lgtm[jenkins/unsafe-calls]") // trust-all TLS only when an admin opts in via CavissonGlobalConfiguration
     private static SSLContext buildTrustAllSslContext()
             throws NoSuchAlgorithmException, KeyManagementException {
         SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -101,6 +102,7 @@ public class CavAIRestClient {
         return sslContext;
     }
 
+    @SuppressWarnings("lgtm[jenkins/unsafe-calls]") // trust-all TLS only when an admin opts in via CavissonGlobalConfiguration
     private void applyTrustAll(HttpURLConnection connection)
             throws NoSuchAlgorithmException, KeyManagementException {
         if (CavissonGlobalConfiguration.insecureSslAllowed()

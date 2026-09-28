@@ -32,6 +32,9 @@ import org.kohsuke.stapler.QueryParameter;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Map;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Evaluates one combined Cavisson quality gate for a whole pipeline build, covering whatever
@@ -195,6 +198,7 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
             return "Cavisson - Quality Gate";
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Existing Service Connection", "serviceConnection");
@@ -202,11 +206,17 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
             return items;
         }
 
+        @POST
         public ListBoxModel doFillCavConnectionItems(@AncestorInPath Item item,
                                                       @QueryParameter String cavConnection) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(cavConnection);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(cavConnection);
             }
 
@@ -216,6 +226,7 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
                     .includeCurrentValue(cavConnection);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckBaseUrl(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "Base URL is required.");
@@ -223,11 +234,17 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @POST
         public ListBoxModel doFillApiTokenCredentialIdItems(@AncestorInPath Item item,
                                                              @QueryParameter String apiTokenCredentialId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(apiTokenCredentialId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(apiTokenCredentialId);
             }
 
@@ -237,6 +254,7 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
                     .includeCurrentValue(apiTokenCredentialId);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApiTokenCredentialId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "API Token credential is required.");
@@ -244,6 +262,7 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckCavConnection(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("serviceConnection".equals(connectionMode)) {
                 return requireNonEmpty(value, "Service Connection is required.");
@@ -258,6 +277,7 @@ public class CavQualityGateBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckQualityGateName(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return FormValidation.error("Quality Gate Name is required.");

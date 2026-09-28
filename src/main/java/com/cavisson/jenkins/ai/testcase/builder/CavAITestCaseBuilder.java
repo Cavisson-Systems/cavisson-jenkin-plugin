@@ -31,6 +31,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.Secret;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
@@ -54,6 +55,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.atomic.AtomicLong;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
 
 /**
  * Jenkins Builder and Pipeline DSL step cavAITestCaseGeneration().
@@ -182,7 +185,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     private String       sourceType           = "PRD";
     private String       testSuiteName        = "";
     private String       username             = "";
-    private String       password             = "";
+    private Secret       password;
     private String       authenticationPrompt = "";
     private List<String> tags                 = new ArrayList<>();
     private String        logLevel             = "INFO";
@@ -244,7 +247,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
     { this.testSuiteName = (v != null && !v.trim().isEmpty()) ? v.trim() : ""; }
     @DataBoundSetter public void setUsername(String v)
     { this.username = v; }
-    @DataBoundSetter public void setPassword(String v)
+    @DataBoundSetter public void setPassword(Secret v)
     { this.password = v; }
     @DataBoundSetter public void setAuthenticationPrompt(String v)
     { this.authenticationPrompt = v; }
@@ -307,7 +310,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         return testSuiteName;
     }
     public String       getUsername()             { return username; }
-    public String       getPassword()             { return password; }
+    public Secret       getPassword()             { return password; }
     public String       getAuthenticationPrompt() { return authenticationPrompt; }
     public List<String> getTags()                 { return Collections.unmodifiableList(tags); }
     public String        getTagsText()             { return String.join("\n", tags); }
@@ -744,11 +747,17 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         @POST public FormValidation doCheckCavServiceConnectionId(@QueryParameter String v)
         { return blank(v) ? FormValidation.error("Required.") : FormValidation.ok(); }
 
+        @POST
         public ListBoxModel doFillCavServiceConnectionIdItems(@AncestorInPath Item item,
                 @QueryParameter String cavServiceConnectionId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(cavServiceConnectionId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(cavServiceConnectionId);
             }
 
@@ -832,6 +841,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillPrdSourceTypeItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("Local File Upload (Default)", SourceManager.LOCAL);
@@ -840,6 +850,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return m;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillSourceTypeItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("JIRA",         "JIRA");
@@ -847,6 +858,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return m;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillLogLevelItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("INFO (Default)", "INFO");

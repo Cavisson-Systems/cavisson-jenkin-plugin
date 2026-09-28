@@ -136,6 +136,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
             return "Cavisson Service Connection";
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckBaseUrl(@QueryParameter String baseUrl) {
             if (baseUrl == null || baseUrl.trim().isEmpty()) {
                 return FormValidation.error("API Base URL is required. Example: https://demo-cicd.cav-test.com:4444");
@@ -144,6 +145,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
         }
 
         @POST
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApiToken(@QueryParameter Secret apiToken) {
             if (apiToken == null || apiToken.getPlainText().trim().isEmpty()) {
                 return FormValidation.error("API Token is required.");
@@ -170,6 +172,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
         }
 
         @POST
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckIntegrationName(
                 @QueryParameter String integrationName,
                 @QueryParameter boolean publishUserStories) {
@@ -180,6 +183,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
         }
 
         @POST
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckPublishEpicName(
                 @QueryParameter String publishEpicName,
                 @QueryParameter boolean publishUserStories) {
@@ -189,6 +193,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillPublishTrackerTypeItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("-- Select --", "");
@@ -197,6 +202,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
             return m;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillGitProviderItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("-- Select (optional) --", "");
@@ -207,6 +213,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
         }
 
         @POST
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckGitUsername(
                 @QueryParameter String gitUsername,
                 @QueryParameter String gitCredential) {

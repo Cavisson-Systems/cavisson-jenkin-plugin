@@ -38,6 +38,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.HashMap;
 import java.util.Map;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Jenkins equivalent of the ADO extension's "CavSecurityPipelineCP100" task
@@ -1193,6 +1196,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return "Cavisson - Security Plugin";
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillScanTypeItems() {
             ListBoxModel m = new ListBoxModel();
             m.add("SAST", "SAST");
@@ -1201,11 +1205,17 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return m;
         }
 
+        @POST
         public ListBoxModel doFillCavScanServiceConnectionItems(@AncestorInPath Item item,
                 @QueryParameter String cavScanServiceConnection) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(cavScanServiceConnection);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(cavScanServiceConnection);
             }
 
@@ -1215,6 +1225,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                     .includeCurrentValue(cavScanServiceConnection);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Existing Service Connection", "serviceConnection");
@@ -1222,6 +1233,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckBaseUrl(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmptyValidation(value, "Base URL is required.");
@@ -1229,11 +1241,17 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return FormValidation.ok();
         }
 
+        @POST
         public ListBoxModel doFillApiTokenCredentialIdItems(@AncestorInPath Item item,
                 @QueryParameter String apiTokenCredentialId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(apiTokenCredentialId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(apiTokenCredentialId);
             }
 
@@ -1243,6 +1261,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                     .includeCurrentValue(apiTokenCredentialId);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApiTokenCredentialId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmptyValidation(value, "API Token credential is required.");
@@ -1250,6 +1269,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckCavScanServiceConnection(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("serviceConnection".equals(connectionMode)) {
                 return requireNonEmptyValidation(value, "Service Connection is required.");
@@ -1264,6 +1284,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillTrivyModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Image", "image");
@@ -1272,10 +1293,12 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillScaModeItems() {
             return doFillTrivyModeItems();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillZapModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Baseline", "baseline");
@@ -1284,10 +1307,12 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillDastModeItems() {
             return doFillZapModeItems();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillZapApiFormatItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("OpenAPI", "openapi");
@@ -1296,10 +1321,12 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillDastApiFormatItems() {
             return doFillZapApiFormatItems();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckProject(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return FormValidation.error("Static Scan Project Name is required.");
@@ -1307,6 +1334,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckTrivyTarget(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return FormValidation.error("Target is required.");
@@ -1314,10 +1342,12 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckScaTarget(@QueryParameter String value) {
             return doCheckTrivyTarget(value);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckZapTarget(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return FormValidation.error("Target URL is required.");
@@ -1325,6 +1355,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckDastTarget(@QueryParameter String value) {
             return doCheckZapTarget(value);
         }

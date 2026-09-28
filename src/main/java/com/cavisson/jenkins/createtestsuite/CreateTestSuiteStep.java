@@ -28,6 +28,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Pipeline equivalent of the Scenario Service "Create Test Suite" API, exposed as the
@@ -248,6 +251,7 @@ public class CreateTestSuiteStep extends Step {
             return new HashSet<>(Arrays.asList(Run.class, TaskListener.class, EnvVars.class));
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Existing Service Connection", "serviceConnection");
@@ -255,6 +259,7 @@ public class CreateTestSuiteStep extends Step {
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckBaseUrl(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "Base URL is required.");
@@ -262,11 +267,17 @@ public class CreateTestSuiteStep extends Step {
             return FormValidation.ok();
         }
 
+        @POST
         public ListBoxModel doFillApiTokenCredentialIdItems(@AncestorInPath Item item,
                                                              @QueryParameter String apiTokenCredentialId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(apiTokenCredentialId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(apiTokenCredentialId);
             }
 
@@ -276,6 +287,7 @@ public class CreateTestSuiteStep extends Step {
                     .includeCurrentValue(apiTokenCredentialId);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApiTokenCredentialId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "API Token credential is required.");
@@ -283,6 +295,7 @@ public class CreateTestSuiteStep extends Step {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckCavServiceConnectionId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("serviceConnection".equals(connectionMode)) {
                 return requireNonEmpty(value, "Service Connection ID is required.");
@@ -290,6 +303,7 @@ public class CreateTestSuiteStep extends Step {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillCodeMappingModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Default (package + class + method)", "");
@@ -299,6 +313,7 @@ public class CreateTestSuiteStep extends Step {
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckTags(@QueryParameter String value,
                                            @QueryParameter String gitIntegration,
                                            @QueryParameter String commitId,

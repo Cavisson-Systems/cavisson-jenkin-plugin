@@ -28,6 +28,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Pipeline equivalent of the ADO "CavissonRunTest" task, exposed as the {@code cavissonRunTest}
@@ -207,6 +210,7 @@ public class CavissonRunTestStep extends Step {
             return new HashSet<>(Arrays.asList(Run.class, FilePath.class, Launcher.class, TaskListener.class, EnvVars.class));
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillTestTypeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Test Suite", "TestSuite");
@@ -214,6 +218,7 @@ public class CavissonRunTestStep extends Step {
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Existing Service Connection", "serviceConnection");
@@ -221,6 +226,7 @@ public class CavissonRunTestStep extends Step {
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckBaseUrl(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "Base URL is required.");
@@ -228,11 +234,17 @@ public class CavissonRunTestStep extends Step {
             return FormValidation.ok();
         }
 
+        @POST
         public ListBoxModel doFillApiTokenCredentialIdItems(@AncestorInPath Item item,
                                                              @QueryParameter String apiTokenCredentialId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(apiTokenCredentialId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(apiTokenCredentialId);
             }
 
@@ -242,6 +254,7 @@ public class CavissonRunTestStep extends Step {
                     .includeCurrentValue(apiTokenCredentialId);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApiTokenCredentialId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "API Token credential is required.");
@@ -249,6 +262,7 @@ public class CavissonRunTestStep extends Step {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckCavServiceConnectionId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("serviceConnection".equals(connectionMode)) {
                 return requireNonEmpty(value, "Service Connection ID is required.");
@@ -256,18 +270,22 @@ public class CavissonRunTestStep extends Step {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckProject(@QueryParameter String value) {
             return requireNonEmpty(value, "Project is required.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckSubProject(@QueryParameter String value) {
             return requireNonEmpty(value, "Sub Project is required.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckUsername(@QueryParameter String value) {
             return requireNonEmpty(value, "User Name is required.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckTestSuiteName(@QueryParameter String value, @QueryParameter String testType) {
             if ("TestSuite".equals(testType)) {
                 return requireNonEmpty(value, "TestSuite Name is required when Test Type is Test Suite.");
@@ -275,6 +293,7 @@ public class CavissonRunTestStep extends Step {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckScenarioName(@QueryParameter String value, @QueryParameter String testType) {
             if ("LoadTest".equals(testType)) {
                 return requireNonEmpty(value, "Test Name is required when Test Type is Load Test.");

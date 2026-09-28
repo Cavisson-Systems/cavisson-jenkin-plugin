@@ -26,6 +26,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Pipeline equivalent of {@code cavArtifactKeeperLogin}: resolves a docker registry
@@ -122,11 +125,17 @@ public class ArtifactKeeperLoginStep extends Step {
             return new HashSet<>(Arrays.asList(Run.class, FilePath.class, Launcher.class, TaskListener.class, EnvVars.class));
         }
 
+        @POST
         public ListBoxModel doFillDockerCredentialIdItems(@AncestorInPath Item item,
                                                            @QueryParameter String dockerCredentialId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(dockerCredentialId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(dockerCredentialId);
             }
 
@@ -136,6 +145,7 @@ public class ArtifactKeeperLoginStep extends Step {
                     .includeCurrentValue(dockerCredentialId);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckDockerCredentialId(@QueryParameter String value) {
             return requireNonEmpty(value, "Docker credential is required.");
         }

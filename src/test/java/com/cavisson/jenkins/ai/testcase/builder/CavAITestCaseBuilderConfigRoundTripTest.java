@@ -1,5 +1,6 @@
 package com.cavisson.jenkins.ai.testcase.builder;
 
+import hudson.util.Secret;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -34,7 +35,7 @@ public class CavAITestCaseBuilderConfigRoundTripTest {
         before.setNumberOfTestCases(3);
         before.setControllerName("work");
         before.setUsername("tester");
-        before.setPassword("secret");
+        before.setPassword(Secret.fromString("secret"));
         before.setAuthenticationPrompt("Login");
         before.setTags(Arrays.asList("app=boutique"));
 
@@ -51,7 +52,7 @@ public class CavAITestCaseBuilderConfigRoundTripTest {
         assertEquals(3, after.getNumberOfTestCases());
         assertEquals("work", after.getControllerName());
         assertEquals("tester", after.getUsername());
-        assertEquals("secret", after.getPassword());
+        assertEquals("secret", Secret.toString(after.getPassword()));
         assertEquals("Login", after.getAuthenticationPrompt());
         assertEquals(Arrays.asList("app=boutique"), after.getTags());
     }

@@ -1,5 +1,6 @@
 package com.cavisson.jenkins.ai.testcase.util;
 
+import hudson.util.Secret;
 import com.cavisson.jenkins.ai.testcase.builder.CavAITestCaseBuilder;
 import com.cavisson.jenkins.connection.CavServiceConnection;
 import com.cavisson.jenkins.ai.testcase.source.JiraSourceRequest;
@@ -107,7 +108,7 @@ public final class PayloadBuilder {
         JSONObject appConfig = new JSONObject();
         appConfig.put("applicationUrl",        builder.getApplicationUrl());
         appConfig.put("username",              nullSafe(builder.getUsername()));
-        appConfig.put("password",              nullSafe(builder.getPassword()));
+        appConfig.put("password",              Secret.toString(builder.getPassword()));
         appConfig.put("authentication_prompt", nullSafe(builder.getAuthenticationPrompt()));
         root.put("applicationConfig", appConfig);
 
@@ -178,7 +179,7 @@ public final class PayloadBuilder {
         JSONObject appConfig = new JSONObject();
         appConfig.put("applicationUrl", builder.getApplicationUrl());
         appConfig.put("username",       nullSafe(builder.getUsername()));
-        appConfig.put("password",       nullSafe(builder.getPassword()));
+        appConfig.put("password",       Secret.toString(builder.getPassword()));
         root.put("applicationConfig", appConfig);
 
         // Tags

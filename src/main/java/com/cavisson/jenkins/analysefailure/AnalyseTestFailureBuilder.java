@@ -26,6 +26,9 @@ import org.kohsuke.stapler.QueryParameter;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Map;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Freestyle/general build-step equivalent of the "Cav Codefix Agent" failure-analysis API:
@@ -193,6 +196,7 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return "Cavisson - Analyse Test Failure";
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public ListBoxModel doFillConnectionModeItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("Existing Service Connection", "serviceConnection");
@@ -200,6 +204,7 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return items;
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckBaseUrl(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "Base URL is required.");
@@ -207,11 +212,17 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return FormValidation.ok();
         }
 
+        @POST
         public ListBoxModel doFillApiTokenCredentialIdItems(@AncestorInPath Item item,
                                                              @QueryParameter String apiTokenCredentialId) {
             StandardListBoxModel result = new StandardListBoxModel();
 
             if (item == null) {
+                if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                    return result.includeCurrentValue(apiTokenCredentialId);
+                }
+            } else if (!item.hasPermission(Item.EXTENDED_READ)
+                    && !item.hasPermission(CredentialsProvider.USE_ITEM)) {
                 return result.includeCurrentValue(apiTokenCredentialId);
             }
 
@@ -221,6 +232,7 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
                     .includeCurrentValue(apiTokenCredentialId);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckApiTokenCredentialId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("direct".equals(connectionMode)) {
                 return requireNonEmpty(value, "API Token credential is required.");
@@ -228,6 +240,7 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckCavServiceConnectionId(@QueryParameter String value, @QueryParameter String connectionMode) {
             if ("serviceConnection".equals(connectionMode)) {
                 return requireNonEmpty(value, "Service Connection ID is required.");
@@ -235,10 +248,12 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckTsrNumber(@QueryParameter String value, @QueryParameter String trNumber) {
             return checkExactlyOneOf(value, trNumber);
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckTrNumber(@QueryParameter String value, @QueryParameter String tsrNumber) {
             return checkExactlyOneOf(value, tsrNumber);
         }
@@ -252,22 +267,27 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckScenario(@QueryParameter String value, @QueryParameter String trNumber) {
             return requireWhenTrNumberUsed(value, trNumber, "Scenario is required when Test Run (trNumber) is used directly.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckProject(@QueryParameter String value, @QueryParameter String trNumber) {
             return requireWhenTrNumberUsed(value, trNumber, "Project is required when Test Run (trNumber) is used directly.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckSubProject(@QueryParameter String value, @QueryParameter String trNumber) {
             return requireWhenTrNumberUsed(value, trNumber, "Sub Project is required when Test Run (trNumber) is used directly.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckUserName(@QueryParameter String value, @QueryParameter String trNumber) {
             return requireWhenTrNumberUsed(value, trNumber, "User Name is required when Test Run (trNumber) is used directly.");
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckWorkProfileName(@QueryParameter String value, @QueryParameter String trNumber) {
             return requireWhenTrNumberUsed(value, trNumber, "Work Profile Name is required when Test Run (trNumber) is used directly.");
         }
@@ -280,6 +300,7 @@ public class AnalyseTestFailureBuilder extends Builder implements SimpleBuildSte
             return FormValidation.ok();
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public FormValidation doCheckConcurrency(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return FormValidation.ok();

@@ -173,6 +173,7 @@ public final class HttpUtil {
         return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
     }
 
+    @SuppressWarnings("lgtm[jenkins/unsafe-calls]") // trust-all TLS only when an admin opts in via CavissonGlobalConfiguration
     private static void applyTrustAllSsl(HttpsURLConnection connection) {
         try {
             TrustManager[] trustAllCerts = new TrustManager[]{

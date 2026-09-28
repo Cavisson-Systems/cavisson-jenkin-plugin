@@ -20,6 +20,7 @@ import java.util.Map;
 final class SonarTokenExchange {
 
     static final class TokenResult {
+        @SuppressWarnings("lgtm[jenkins/plaintext-storage]") // runtime-only value, never persisted to disk
         final String sonarToken;
         final String userName;
 
