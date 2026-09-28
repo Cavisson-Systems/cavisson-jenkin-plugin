@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A standalone Jenkins plugin (`cavisson-jenkin-plugin`, groupId `com.cavisson.jenkins.plugins`) that hosts Cavisson CI/CD execution tasks as both Freestyle build steps and Pipeline steps. It is a sibling of, but intentionally decoupled from, `cav-security-pipeline` (a separate Jenkins plugin at `prod-src/core/jenkins/cav-jenkins` that does SAST/SCA/DAST security scanning and owns its own `CavServiceConnection` credential type).
+A standalone Jenkins plugin, **Cavisson CICD** (`io.jenkins.plugins:cavisson-cicd`, prepared for hosting on the Jenkins Update Center as `jenkinsci/cavisson-cicd-plugin`; Java packages stay `com.cavisson.jenkins.*`), that hosts Cavisson CI/CD execution tasks as both Freestyle build steps and Pipeline steps. It is a sibling of, but intentionally decoupled from, `cav-security-pipeline` (a separate Jenkins plugin at `prod-src/core/jenkins/cav-jenkins` that does SAST/SCA/DAST security scanning and owns its own `CavServiceConnection` credential type).
 
 Tasks so far:
 - `CavissonRunTest` ("Cavisson - Run Test" / Pipeline step `cavissonRunTest`) — triggers a Cavisson TestSuite or Load Test scenario on a DashboardServer instance and polls until it finishes. Reference implementation: the Azure DevOps extension at `../cav-load-test-azure-devops-extension` (`task/index.js`) — treat that file as the source of truth when porting behavior, not its README/ARCHITECTURE.md, which describe older/aspirational designs. That repo evolves independently; `git pull` it and diff `task/index.js` periodically when debugging behavior mismatches, since server-side response shapes and polling logic have changed there before without notice here.
@@ -13,9 +13,11 @@ Tasks so far:
 
 ## Commands
 
+Build with **JDK 21** (the default JDK 8 on dev machines can't run the parent POM), e.g. `JAVA_HOME=$(/usr/libexec/java_home -v 21)`.
+
 - Run all tests: `mvn test` (requires network access the first time — the parent POM and Jenkins test harness aren't cached for a fresh checkout; `-o` offline mode will fail until then).
 - Run a single test class: `mvn test -Dtest=CavissonRunTestBuilderConfigRoundTripTest`
-- Build the plugin without running tests: `mvn package -DskipTests` — produces `target/cavisson-jenkin-plugin.hpi`.
+- Build the plugin without running tests: `mvn package -DskipTests` — produces `target/cavisson-cicd.hpi`. `mvn verify` also runs SpotBugs (from the parent POM), which fails the build on findings, and ci.jenkins.io (`Jenkinsfile`) runs the same checks.
 - Install manually: Jenkins → Manage Jenkins → Plugins → Advanced settings → Deploy Plugin → upload the `.hpi`.
 - The `JenkinsRule`-based tests (`InjectedTest`, `CavissonRunTestBuilderConfigRoundTripTest`) boot an in-process Jenkins and take 10-60s each; this is normal, not a hang.
 
@@ -50,7 +52,7 @@ All of this lives in `CavissonConnectionResolver.resolve(...)`, which always ret
 
 ### Cavisson DashboardServer REST API (used by CavissonRunTest)
 
-Base path: `{baseUrl}/DashboardServer/v2/scenario/cicd`. All requests carry a `cavToken` header (not `Authorization: Bearer`), and SSL verification is deliberately disabled (`allowInsecureSSL = true`, matching the ADO extension's `rejectUnauthorized: false` — self-signed certs are expected in the field).
+Base path: `{baseUrl}/DashboardServer/v2/scenario/cicd`. All requests carry a `cavToken` header (not `Authorization: Bearer`), and executors pass `allowInsecureSSL = true`, but trust-all SSL is only actually applied when an admin enables **Manage Jenkins → System → Cavisson CICD → Skip TLS certificate verification** (`config.CavissonGlobalConfiguration`, default off — required for Jenkins hosting review). `HttpUtil` and `CavAIRestClient` both gate on `CavissonGlobalConfiguration.insecureSslAllowed()`; any new HTTP code must do the same.
 - `POST /startTest` — triggers the run. **Do not trust the top-level `status` field to mean "trigger succeeded"** — a real server response has been observed as `{"success":true,"run":1059,"status":"PASS",...}` where `status` reflects something else entirely at this stage. Use the boolean `success` field (`CavissonRunTestExecutor.isStartSuccessful`), falling back to `status=="success"` only if `success` is absent.
 - `GET /checkConnectionStatus?testRun=&testmode=&scenarioName=&replaceTR=false` — polled every 60s while `running=true`. Use the **`effectiveTestMode`** field from the `/startTest` response (`resolveEffectiveMode`) for the `testmode` param here, not the originally-requested mode — the server can normalize/override it, and polling with a stale mode can misbehave. Both `"fail"` and `"failed"` are terminal failure statuses (`isTerminalStatus`); anything else unrecognized aborts the build.
 - `POST /getHtmlReport` — downloaded/archived only for Load Test (`effectiveMode == "N"`) runs, to `workspace/cavisson-report/TestSuiteReport_<runNo>.html` via `hudson.tasks.ArtifactArchiver`.
@@ -133,15 +135,9 @@ Every free-text field (not a `f:select` dropdown or credential picker) is expand
 
 Because this class of bug only shows up on a real form **submit**, not on Jelly parsing, `CavissonRunTestBuilderConfigRoundTripTest` uses `JenkinsRule#configRoundtrip` to actually render the config page and submit it through a headless browser — this is the only test type that would have caught it. When adding fields to a Builder/Step, add or extend a round-trip test rather than trusting the built-in Jelly-parse-only test suite.
 
-### Dependency version pins (don't bump casually — each was forced by `RequireUpperBoundDeps`)
+### Dependency versions
 
-`jenkins.version` is pinned to `2.346.3`. Versions in `pom.xml` were chosen as "highest release whose `requiredCore` is ≤ 2.346.3", then adjusted when the enforcer plugin found conflicts:
-- `workflow-step-api:639.v6eca_cd8c04a_a_` — needed by the `junit` plugin's own transitive requirement (a lower version conflicts).
-- `structs:308.v852b473a2b8c` — required transitively by `workflow-step-api`.
-- `plain-credentials:1.8` — a newer release (`139.x`) pulls a `credentials` transitive version far too new for this `jenkins.version` baseline; 1.8 is the one that resolves cleanly.
-- `junit:1150.v5c2848328b_60` plus a `<dependencyManagement>` override pinning `io.jenkins.plugins:font-awesome-api:6.1.1-1` — the `junit` plugin's own two transitive deps (`echarts-api`, `bootstrap5-api`) pull two different, conflicting `font-awesome-api` versions internally.
-
-If you bump any of these, re-run `mvn test` fully (not just compile) — the enforcer runs in an early phase and will fail loudly with the exact conflicting paths if something regresses.
+Parent POM `org.jenkins-ci.plugins:plugin:5.x`, `jenkins.baseline` 2.541 (`jenkins.version` 2.541.3), and plugin dependency versions come from the imported `io.jenkins.tools:bom-2.541.x` — don't add `<version>` to BOM-managed plugin dependencies. `org.json` comes from the `json-api` library plugin (bundling `org.json:json` directly conflicts with it under `RequireUpperBoundDeps`). Versioning is CD-style (`${changelist}` + `.mvn/` incrementals extension) for automated releases via GitHub Actions.
 
 ### Known test flakiness
 

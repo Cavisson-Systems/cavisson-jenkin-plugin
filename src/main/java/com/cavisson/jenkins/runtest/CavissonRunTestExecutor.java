@@ -228,8 +228,8 @@ final class CavissonRunTestExecutor {
 
         Map<String, String> envVars = new LinkedHashMap<>();
         envVars.put("CAV_TSR_NUMBER", String.valueOf(runNo));
-        envVars.put("CAV_TSR_STATUS", finalStatus == null ? "" : finalStatus);
-        envVars.put("CAV_TSR_REPORT_URL", reportUrl == null ? "" : reportUrl);
+        envVars.put("CAV_TSR_STATUS", finalStatus);
+        envVars.put("CAV_TSR_REPORT_URL", reportUrl);
         CavissonEnvironmentPublisher.publish(run, envVars);
 
         Map<String, Object> result = new LinkedHashMap<>();

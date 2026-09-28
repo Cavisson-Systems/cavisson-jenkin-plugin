@@ -1,5 +1,7 @@
 package com.cavisson.jenkins.http;
 
+import com.cavisson.jenkins.config.CavissonGlobalConfiguration;
+
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -26,6 +28,10 @@ import javax.net.ssl.X509TrustManager;
 /**
  * Minimal HTTP client used to call the Cavisson DashboardServer REST endpoints, with no extra
  * runtime HTTP client dependency. Shared by every task in this plugin.
+ *
+ * Trust-all SSL is applied only when the caller asks for it <em>and</em> an administrator has
+ * enabled it globally ({@link CavissonGlobalConfiguration}); otherwise normal JVM certificate and
+ * hostname verification applies.
  */
 public final class HttpUtil {
 
@@ -64,7 +70,8 @@ public final class HttpUtil {
 
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
 
-        if (allowInsecureSSL && connection instanceof HttpsURLConnection) {
+        if (allowInsecureSSL && CavissonGlobalConfiguration.insecureSslAllowed()
+                && connection instanceof HttpsURLConnection) {
             applyTrustAllSsl((HttpsURLConnection) connection);
         }
 
@@ -117,7 +124,8 @@ public final class HttpUtil {
     private static HttpResult request(String method, String url, String body, Map<String, String> headers, boolean allowInsecureSSL) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
 
-        if (allowInsecureSSL && connection instanceof HttpsURLConnection) {
+        if (allowInsecureSSL && CavissonGlobalConfiguration.insecureSslAllowed()
+                && connection instanceof HttpsURLConnection) {
             applyTrustAllSsl((HttpsURLConnection) connection);
         }
 

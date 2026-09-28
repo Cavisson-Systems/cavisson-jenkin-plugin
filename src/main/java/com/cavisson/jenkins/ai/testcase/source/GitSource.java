@@ -195,7 +195,7 @@ public class GitSource implements PrdSource {
             if (masked) {
                 log.debug("Authenticated clone failed (credentials masked)");
             } else {
-                String out = new String(output).trim();
+                String out = new String(output, java.nio.charset.StandardCharsets.UTF_8).trim();
                 if (!out.isEmpty()) {
                     log.debug("Clone output: " + out);
                 }

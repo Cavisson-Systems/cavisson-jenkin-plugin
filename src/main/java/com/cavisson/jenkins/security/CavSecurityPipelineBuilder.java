@@ -509,8 +509,6 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                 resolvedProject = env.getOrDefault("JOB_NAME", "unknown-project");
             }
 
-            FilePath trivyReportDirForPublish = null;
-            FilePath zapReportDirForPublish = null;
 
             Map<String, Object> result;
 
@@ -537,7 +535,6 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                         CavLogger.debug(listener, "SCA Run Mode is standalone. Running Trivy shell scan only.");
 
                         FilePath trivyResultDir = runTrivyStandalone(launcher, listener, workspace, env);
-                        trivyReportDirForPublish = trivyResultDir;
 
                         result = SecurityReportPublisher.saveSecurityReportToMongo(launcher, listener, workspace, env,
                                 run,
@@ -616,7 +613,6 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
                         CavLogger.debug(listener, "DAST Service : " + resolvedServices);
 
                         FilePath zapResultDir = runZapStandalone(launcher, listener, workspace, env);
-                        zapReportDirForPublish = zapResultDir;
 
                         result = SecurityReportPublisher.saveSecurityReportToMongo(launcher, listener, workspace, env,
                                 run,
@@ -895,8 +891,9 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             EnvVars env,
             String scriptContent,
             String title) throws IOException, InterruptedException {
-        FilePath script = workspace.child(".cav-security-pipeline").child("run-" + sanitizeForFile(title) + ".sh");
-        script.getParent().mkdirs();
+        FilePath scriptDir = workspace.child(".cav-security-pipeline");
+        scriptDir.mkdirs();
+        FilePath script = scriptDir.child("run-" + sanitizeForFile(title) + ".sh");
         script.write(scriptContent, "UTF-8");
         script.chmod(0755);
 
