@@ -24,7 +24,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -152,7 +152,7 @@ public class AccessibilityScannerStep extends Step {
             return "cavAccessibilityScanner";
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Cavisson - Accessibility Scanner";

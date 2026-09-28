@@ -137,7 +137,13 @@ Because this class of bug only shows up on a real form **submit**, not on Jelly 
 
 ### Dependency versions
 
-Parent POM `org.jenkins-ci.plugins:plugin:5.x`, `jenkins.baseline` 2.541 (`jenkins.version` 2.541.3), and plugin dependency versions come from the imported `io.jenkins.tools:bom-2.541.x` — don't add `<version>` to BOM-managed plugin dependencies. `org.json` comes from the `json-api` library plugin (bundling `org.json:json` directly conflicts with it under `RequireUpperBoundDeps`). Versioning is CD-style (`${changelist}` + `.mvn/` incrementals extension) for automated releases via GitHub Actions.
+Parent POM `org.jenkins-ci.plugins:plugin:6.x`, `jenkins.baseline` 2.541 (`jenkins.version` 2.541.3), and plugin dependency versions come from the imported `io.jenkins.tools:bom-2.541.x` — don't add `<version>` to BOM-managed plugin dependencies. `org.json` comes from the `json-api` library plugin (bundling `org.json:json` directly conflicts with it under `RequireUpperBoundDeps`). The pom enables the checks required by the Jenkins hosting checker — keep them on: `hpi.strictBundledArtifacts` (nothing may be bundled into the `.hpi`; e.g. use `edu.umd.cs.findbugs.annotations.NonNull`, not jsr305's `javax.annotation.Nonnull`), `ban-junit4-imports` (tests must be JUnit 5: `org.junit.jupiter.*`, `@WithJenkins` + a `JenkinsRule` parameter instead of `@Rule`), `ban-deprecated-stapler`, `ban-commons-lang-2`, `banObsoleteDependencyOverrides`.
+
+Every Stapler web method needs either `@POST` plus a permission check (required for any `doFill*Items` that lists credentials — see the existing pattern using `Item.EXTENDED_READ`/`CredentialsProvider.USE_ITEM`) or, for pure validators/static choice lists, `@SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"})`. Passwords/tokens in anything persisted (Builder/Step fields) must be `hudson.util.Secret`. The Jenkins Security Scan (`.github/workflows/jenkins-security-scan.yml`) runs on every push/PR and will flag regressions.
+
+If JenkinsRule tests suddenly fail with extensions/descriptors missing (`get()` returns null, `configRoundtrip` returns null) right after editing sources, it's the IDE's Java builder overwriting `target/classes` without the SezPoz `META-INF/annotations/hudson.Extension` index — re-run `mvn clean verify` after the IDE settles; it's not a real failure.
+
+Versioning is CD-style (`${changelist}` + `.mvn/` incrementals extension) for automated releases via GitHub Actions.
 
 ### Known test flakiness
 

@@ -29,7 +29,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,7 +107,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
     private String securityScanStatusTimeout = "";
 
     @DataBoundConstructor
-    public CavSecurityPipelineBuilder(@Nonnull String scanType) {
+    public CavSecurityPipelineBuilder(@NonNull String scanType) {
         this.scanType = normalizeScanType(scanType);
     }
 
@@ -449,11 +449,11 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
     }
 
     @Override
-    public void perform(@Nonnull Run<?, ?> run,
-            @Nonnull FilePath workspace,
-            @Nonnull EnvVars env,
-            @Nonnull Launcher launcher,
-            @Nonnull TaskListener listener) throws InterruptedException, IOException {
+    public void perform(@NonNull Run<?, ?> run,
+            @NonNull FilePath workspace,
+            @NonNull EnvVars env,
+            @NonNull Launcher launcher,
+            @NonNull TaskListener listener) throws InterruptedException, IOException {
         run(run, workspace, env, launcher, listener);
     }
 
@@ -472,11 +472,11 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
      * map — it's a
      * fire-and-forget trigger ("scanning will take 5-10 minutes").
      */
-    public Map<String, Object> run(@Nonnull Run<?, ?> run,
-            @Nonnull FilePath workspace,
-            @Nonnull EnvVars env,
-            @Nonnull Launcher launcher,
-            @Nonnull TaskListener listener) throws InterruptedException, IOException {
+    public Map<String, Object> run(@NonNull Run<?, ?> run,
+            @NonNull FilePath workspace,
+            @NonNull EnvVars env,
+            @NonNull Launcher launcher,
+            @NonNull TaskListener listener) throws InterruptedException, IOException {
         CavLogger.configure(env);
         try {
             CavissonConnection connection = CavissonConnectionResolver.resolve(
@@ -1190,7 +1190,7 @@ public class CavSecurityPipelineBuilder extends Builder implements SimpleBuildSt
             return true;
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Cavisson - Security Plugin";

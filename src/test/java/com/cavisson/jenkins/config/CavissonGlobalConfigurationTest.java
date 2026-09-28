@@ -1,25 +1,31 @@
 package com.cavisson.jenkins.config;
 
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class CavissonGlobalConfigurationTest {
+@WithJenkins
+class CavissonGlobalConfigurationTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void insecureSslIsOffByDefault() {
+    void insecureSslIsOffByDefault() {
         assertFalse(CavissonGlobalConfiguration.get().isAllowInsecureSSL());
         assertFalse(CavissonGlobalConfiguration.insecureSslAllowed());
     }
 
     @Test
-    public void allowInsecureSslSurvivesConfigRoundTrip() throws Exception {
+    void allowInsecureSslSurvivesConfigRoundTrip() throws Exception {
         CavissonGlobalConfiguration.get().setAllowInsecureSSL(true);
         j.configRoundtrip();
         assertTrue(CavissonGlobalConfiguration.get().isAllowInsecureSSL());

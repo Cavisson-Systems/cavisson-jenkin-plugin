@@ -22,7 +22,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import jenkins.model.Jenkins;
@@ -107,11 +107,11 @@ public class AccessibilityScannerBuilder extends Builder implements SimpleBuildS
     }
 
     @Override
-    public void perform(@Nonnull Run<?, ?> run,
-                         @Nonnull FilePath workspace,
-                         @Nonnull EnvVars env,
-                         @Nonnull Launcher launcher,
-                         @Nonnull TaskListener listener) throws InterruptedException, IOException {
+    public void perform(@NonNull Run<?, ?> run,
+                         @NonNull FilePath workspace,
+                         @NonNull EnvVars env,
+                         @NonNull Launcher launcher,
+                         @NonNull TaskListener listener) throws InterruptedException, IOException {
 
         AccessibilityScannerExecutor.run(
                 run, workspace, launcher, env, listener, cavConnection, controller, applicationUrl, logLevel);
@@ -125,7 +125,7 @@ public class AccessibilityScannerBuilder extends Builder implements SimpleBuildS
             return true;
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Cavisson - Accessibility Scanner";

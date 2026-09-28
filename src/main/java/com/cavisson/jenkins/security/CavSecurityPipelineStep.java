@@ -15,7 +15,7 @@ import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -41,7 +41,7 @@ public class CavSecurityPipelineStep extends Step {
     private final CavSecurityPipelineBuilder delegate;
 
     @DataBoundConstructor
-    public CavSecurityPipelineStep(@Nonnull String scanType) {
+    public CavSecurityPipelineStep(@NonNull String scanType) {
         this.delegate = new CavSecurityPipelineBuilder(scanType);
     }
 
@@ -410,7 +410,7 @@ public class CavSecurityPipelineStep extends Step {
             return "cavSecurityPlugin";
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Cavisson - Security Plugin";

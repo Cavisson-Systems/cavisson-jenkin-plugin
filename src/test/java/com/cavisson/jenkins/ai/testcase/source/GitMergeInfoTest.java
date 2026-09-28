@@ -1,13 +1,13 @@
 package com.cavisson.jenkins.ai.testcase.source;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class GitMergeInfoTest {
+class GitMergeInfoTest {
 
     @Test
-    public void parsesGitLabMergeIdAndEpic() {
+    void parsesGitLabMergeIdAndEpic() {
         GitMergeInfo info = GitMergeInfo.parse(
                 "Merge branch 'feature/x' into 'Develop'\n\n"
                 + "B-NA|A-Pradyumna | R - Amit Sharma | M-Some change | EM-527\n\n"
@@ -17,7 +17,7 @@ public class GitMergeInfoTest {
     }
 
     @Test
-    public void noEpicInMessage() {
+    void noEpicInMessage() {
         GitMergeInfo info = GitMergeInfo.parse(
                 "Merge branch 'J_Plugin' into 'Develop'\n\n"
                 + "A-Anjali|R-Anjali|B-0|M-installing JQ within plugin\n\n"
@@ -27,28 +27,28 @@ public class GitMergeInfoTest {
     }
 
     @Test
-    public void githubPullRequestAndNoTrailer() {
+    void githubPullRequestAndNoTrailer() {
         GitMergeInfo info = GitMergeInfo.parse("Merge pull request #14 from org/feat\n\nFix | ABC-9");
         assertEquals("14", info.getMergeId());
         assertEquals("ABC-9", info.getEpicId());
     }
 
     @Test
-    public void emptyMessage() {
+    void emptyMessage() {
         GitMergeInfo info = GitMergeInfo.parse("");
         assertEquals("", info.getMergeId());
         assertEquals("", info.getEpicId());
     }
 
     @Test
-    public void githubMergeWithSpacedEpic() {
+    void githubMergeWithSpacedEpic() {
         GitMergeInfo info = GitMergeInfo.parse("Merge pull request #61 from Shiv0308/feature/Coupon-cart | DT -753");
         assertEquals("61", info.getMergeId());
         assertEquals("DT-753", info.getEpicId());
     }
 
     @Test
-    public void epicAfterPipeWinsOverBranchKey() {
+    void epicAfterPipeWinsOverBranchKey() {
         GitMergeInfo info = GitMergeInfo.parse("Merge pull request #5 from me/feature/AB-12 | DT-753");
         assertEquals("DT-753", info.getEpicId());
     }

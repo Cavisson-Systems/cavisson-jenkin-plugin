@@ -1,10 +1,11 @@
 package com.cavisson.jenkins.security;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Reproduces the real "Save" flow on a Freestyle job's configure page for the merged-in
@@ -12,13 +13,18 @@ import static org.junit.Assert.assertEquals;
  * which per CLAUDE.md's documented gotcha bundles sibling fields into a JSON object that does
  * not bind to a plain String property) survives a real form submit for all three scan types.
  */
-public class CavSecurityPipelineBuilderConfigRoundTripTest {
+@WithJenkins
+class CavSecurityPipelineBuilderConfigRoundTripTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void sastConfigSurvivesRoundTrip() throws Exception {
+    void sastConfigSurvivesRoundTrip() throws Exception {
         CavSecurityPipelineBuilder before = new CavSecurityPipelineBuilder("SAST");
         before.setCavScanServiceConnection("my-service-connection");
         before.setProject("demo-project");
@@ -37,7 +43,7 @@ public class CavSecurityPipelineBuilderConfigRoundTripTest {
     }
 
     @Test
-    public void scaConfigSurvivesRoundTrip() throws Exception {
+    void scaConfigSurvivesRoundTrip() throws Exception {
         CavSecurityPipelineBuilder before = new CavSecurityPipelineBuilder("SCA");
         before.setCavScanServiceConnection("my-service-connection");
         before.setProject("demo-project");
@@ -56,7 +62,7 @@ public class CavSecurityPipelineBuilderConfigRoundTripTest {
     }
 
     @Test
-    public void dastConfigSurvivesRoundTrip() throws Exception {
+    void dastConfigSurvivesRoundTrip() throws Exception {
         CavSecurityPipelineBuilder before = new CavSecurityPipelineBuilder("DAST");
         before.setCavScanServiceConnection("my-service-connection");
         before.setProject("demo-project");

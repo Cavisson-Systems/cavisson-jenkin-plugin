@@ -1,10 +1,11 @@
 package com.cavisson.jenkins.accessibility;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Reproduces the real "Save" flow on a Freestyle job's configure page for the Accessibility
@@ -12,13 +13,18 @@ import static org.junit.Assert.assertEquals;
  * {@link JenkinsRule#configRoundtrip} renders the actual config.jelly, submits the form through
  * a headless browser, and rebuilds the Builder instance from what was submitted.
  */
-public class AccessibilityScannerBuilderConfigRoundTripTest {
+@WithJenkins
+class AccessibilityScannerBuilderConfigRoundTripTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void configSurvivesRoundTrip() throws Exception {
+    void configSurvivesRoundTrip() throws Exception {
         AccessibilityScannerBuilder before = new AccessibilityScannerBuilder();
         before.setCavConnection("my-cavisson-connection");
         before.setController("work");

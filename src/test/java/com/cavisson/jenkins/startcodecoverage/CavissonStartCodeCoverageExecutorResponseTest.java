@@ -1,21 +1,21 @@
 package com.cavisson.jenkins.startcodecoverage;
 
 import org.json.JSONObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Locks in parsing of the /v2/webreport/report/coverageReport/codeCovStart response shape,
  * matching task-start-coverage/index.js in the Azure DevOps extension: the boolean "success"
  * field gates the outcome, and a nested "data.state" of "RUNNING" confirms coverage started.
  */
-public class CavissonStartCodeCoverageExecutorResponseTest {
+class CavissonStartCodeCoverageExecutorResponseTest {
 
     @Test
-    public void successResponseIsRecognized() {
+    void successResponseIsRecognized() {
         JSONObject json = new JSONObject(
                 "{\"success\":true,\"data\":{\"state\":\"RUNNING\",\"uuid\":\"abc-123\",\"applicationName\":\"myApp\"}}");
 
@@ -25,7 +25,7 @@ public class CavissonStartCodeCoverageExecutorResponseTest {
     }
 
     @Test
-    public void failureResponseIsRecognizedWithMessage() {
+    void failureResponseIsRecognizedWithMessage() {
         JSONObject json = new JSONObject("{\"success\":false,\"message\":\"Application not found\"}");
 
         assertFalse(CavissonStartCodeCoverageExecutor.isSuccess(json));
@@ -33,7 +33,7 @@ public class CavissonStartCodeCoverageExecutorResponseTest {
     }
 
     @Test
-    public void missingMessageFallsBackToDefault() {
+    void missingMessageFallsBackToDefault() {
         JSONObject json = new JSONObject("{\"success\":false}");
 
         assertEquals("Unknown error received from API", CavissonStartCodeCoverageExecutor.failureMessage(json));

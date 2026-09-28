@@ -13,8 +13,8 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.util.Base64;
 
 /**
@@ -46,19 +46,19 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
     public CavServiceConnection(@CheckForNull CredentialsScope scope,
                                  @CheckForNull String id,
                                  @CheckForNull String description,
-                                 @Nonnull String baseUrl,
-                                 @Nonnull Secret apiToken) {
+                                 @NonNull String baseUrl,
+                                 @NonNull Secret apiToken) {
         super(scope, id, description);
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
         this.apiToken = apiToken;
     }
 
-    @Nonnull
+    @NonNull
     public String getBaseUrl() {
         return baseUrl;
     }
 
-    @Nonnull
+    @NonNull
     public Secret getApiToken() {
         return apiToken;
     }
@@ -130,7 +130,7 @@ public class CavServiceConnection extends BaseStandardCredentials implements Sta
     @Extension
     public static class DescriptorImpl extends BaseStandardCredentials.BaseStandardCredentialsDescriptor {
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Cavisson Service Connection";

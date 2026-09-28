@@ -1,17 +1,17 @@
 package com.cavisson.jenkins.analysefailure;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies parsing against the exact JUnit report shape provided by Cavisson: testsuite-level
  * properties (started_by, workspace) plus per-testcase properties (status, tr_number), deriving
  * each failing testcase's analysis inputs with no extra task input required.
  */
-public class JunitFailureParserTest {
+class JunitFailureParserTest {
 
     private static final String SAMPLE_REPORT =
             "<?xml version='1.0' encoding='utf-8'?>\n"
@@ -48,14 +48,14 @@ public class JunitFailureParserTest {
                     + "</testsuite>\n";
 
     @Test
-    public void onlyFailingTestcasesAreReturned() throws Exception {
+    void onlyFailingTestcasesAreReturned() throws Exception {
         List<AnalysisTarget> targets = JunitFailureParser.parseFailingTestcases(SAMPLE_REPORT);
 
         assertEquals(2, targets.size());
     }
 
     @Test
-    public void failingTestcaseFieldsAreDerivedCorrectly() throws Exception {
+    void failingTestcaseFieldsAreDerivedCorrectly() throws Exception {
         List<AnalysisTarget> targets = JunitFailureParser.parseFailingTestcases(SAMPLE_REPORT);
 
         AnalysisTarget first = targets.get(0);
@@ -69,7 +69,7 @@ public class JunitFailureParserTest {
     }
 
     @Test
-    public void secondFailingTestcaseIsAlsoDerived() throws Exception {
+    void secondFailingTestcaseIsAlsoDerived() throws Exception {
         List<AnalysisTarget> targets = JunitFailureParser.parseFailingTestcases(SAMPLE_REPORT);
 
         AnalysisTarget second = targets.get(1);
@@ -79,7 +79,7 @@ public class JunitFailureParserTest {
     }
 
     @Test
-    public void noFailingTestcasesReturnsEmptyList() throws Exception {
+    void noFailingTestcasesReturnsEmptyList() throws Exception {
         String allPassingReport =
                 "<?xml version='1.0' encoding='utf-8'?>\n"
                         + "<testsuite name=\"AI/demo/BoutiqueDiscountCouponRegression\" tests=\"1\" failures=\"0\">\n"

@@ -24,7 +24,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.Map;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
@@ -197,11 +197,11 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
     }
 
     @Override
-    public void perform(@Nonnull Run<?, ?> run,
-                         @Nonnull FilePath workspaceDir,
-                         @Nonnull EnvVars env,
-                         @Nonnull Launcher launcher,
-                         @Nonnull TaskListener listener) throws InterruptedException, IOException {
+    public void perform(@NonNull Run<?, ?> run,
+                         @NonNull FilePath workspaceDir,
+                         @NonNull EnvVars env,
+                         @NonNull Launcher launcher,
+                         @NonNull TaskListener listener) throws InterruptedException, IOException {
 
         CavissonConnection connection = CavissonConnectionResolver.resolve(
                 run, env, connectionMode, baseUrl, apiTokenCredentialId, cavServiceConnectionId);
@@ -221,7 +221,7 @@ public class CreateTestSuiteBuilder extends Builder implements SimpleBuildStep {
             return true;
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return "Cavisson - Create Functional Test Suite";

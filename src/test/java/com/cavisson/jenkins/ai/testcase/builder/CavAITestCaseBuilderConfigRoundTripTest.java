@@ -1,13 +1,14 @@
 package com.cavisson.jenkins.ai.testcase.builder;
 
 import hudson.util.Secret;
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Reproduces the real "Save" flow on a Freestyle job's configure page for the merged-in
@@ -17,13 +18,18 @@ import static org.junit.Assert.assertEquals;
  * confirm the merged-in Jelly/getter/setter wiring survives a real form submit, not just
  * Jelly-parse-only checks.
  */
-public class CavAITestCaseBuilderConfigRoundTripTest {
+@WithJenkins
+class CavAITestCaseBuilderConfigRoundTripTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void localSourceConfigSurvivesRoundTrip() throws Exception {
+    void localSourceConfigSurvivesRoundTrip() throws Exception {
         CavAITestCaseBuilder before = new CavAITestCaseBuilder("my-ai-service-connection");
         before.setApplicationUrl("https://www.saucedemo.com");
         before.setPrdSourceType("LOCAL");
@@ -58,7 +64,7 @@ public class CavAITestCaseBuilderConfigRoundTripTest {
     }
 
     @Test
-    public void gitSourceConfigSurvivesRoundTrip() throws Exception {
+    void gitSourceConfigSurvivesRoundTrip() throws Exception {
         CavAITestCaseBuilder before = new CavAITestCaseBuilder("my-ai-service-connection");
         before.setPrdSourceType("GIT");
         before.setGitRepoUrl("https://github.com/org/repo.git");

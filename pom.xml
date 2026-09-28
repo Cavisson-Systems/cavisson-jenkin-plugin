@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>5.2102.v5f5fe09fccf1</version>
+        <version>6.2236.v12dd4c483242</version>
         <relativePath/>
     </parent>
 
@@ -35,12 +35,6 @@
         </license>
     </licenses>
 
-    <developers>
-        <developer>
-            <id>cavisson</id>
-            <name>Cavisson Systems</name>
-        </developer>
-    </developers>
 
     <scm>
         <connection>scm:git:https://github.com/${gitHubRepo}.git</connection>
@@ -56,6 +50,11 @@
         <jenkins.version>${jenkins.baseline}.3</jenkins.version>
         <!-- Spotless formatting is opt-in; enable once the codebase is reformatted -->
         <spotless.check.skip>true</spotless.check.skip>
+        <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+        <banObsoleteDependencyOverrides.skip>false</banObsoleteDependencyOverrides.skip>
+        <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
+        <ban-deprecated-stapler.skip>false</ban-deprecated-stapler.skip>
+        <ban-commons-lang-2.skip>false</ban-commons-lang-2.skip>
     </properties>
 
     <!-- ========================================================= -->
@@ -100,12 +99,6 @@
             <artifactId>json-api</artifactId>
         </dependency>
 
-        <!-- JSR305 -->
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
-        </dependency>
 
     </dependencies>
 

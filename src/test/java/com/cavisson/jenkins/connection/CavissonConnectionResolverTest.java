@@ -6,11 +6,12 @@ import hudson.EnvVars;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies that Direct-mode's free-text fields (base URL, service connection ID) are expanded
@@ -18,13 +19,18 @@ import static org.junit.Assert.assertEquals;
  * using an env var named CAV_HOST - matching every other free-text task input in this plugin.
  * The credential ID picker itself is intentionally NOT expanded (it's a selector, not free text).
  */
-public class CavissonConnectionResolverTest {
+@WithJenkins
+class CavissonConnectionResolverTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void baseUrlIsExpandedAgainstBuildEnvironment() throws Exception {
+    void baseUrlIsExpandedAgainstBuildEnvironment() throws Exception {
         SystemCredentialsProvider.getInstance().getCredentials().add(
                 new StringCredentialsImpl(CredentialsScope.GLOBAL, "test-token", "desc", hudson.util.Secret.fromString("s3cr3t")));
         SystemCredentialsProvider.getInstance().save();

@@ -1,10 +1,11 @@
 package com.cavisson.jenkins.analysefailure;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Reproduces the real "Save" flow on a Freestyle job's configure page. See CLAUDE.md's Jelly
@@ -12,13 +13,18 @@ import static org.junit.Assert.assertEquals;
  * to a plain String property. This config.jelly uses flat f:select/f:textbox fields from the
  * start, but this test exists to keep it that way as fields are added.
  */
-public class AnalyseTestFailureBuilderConfigRoundTripTest {
+@WithJenkins
+class AnalyseTestFailureBuilderConfigRoundTripTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void tsrNumberModeConfigSurvivesRoundTrip() throws Exception {
+    void tsrNumberModeConfigSurvivesRoundTrip() throws Exception {
         AnalyseTestFailureBuilder before = new AnalyseTestFailureBuilder();
         before.setConnectionMode("direct");
         before.setBaseUrl("https://10.10.70.105:4444");
@@ -36,7 +42,7 @@ public class AnalyseTestFailureBuilderConfigRoundTripTest {
     }
 
     @Test
-    public void trNumberDirectModeConfigSurvivesRoundTrip() throws Exception {
+    void trNumberDirectModeConfigSurvivesRoundTrip() throws Exception {
         AnalyseTestFailureBuilder before = new AnalyseTestFailureBuilder();
         before.setConnectionMode("serviceConnection");
         before.setCavServiceConnectionId("my-service-connection");

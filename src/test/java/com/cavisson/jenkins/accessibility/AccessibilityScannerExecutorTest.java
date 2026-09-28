@@ -2,30 +2,30 @@ package com.cavisson.jenkins.accessibility;
 
 import hudson.AbortException;
 import org.json.JSONObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Locks in the input-validation and severity-ranking logic used by
  * {@link AccessibilityScannerExecutor#run} before any scan/upload work happens, without needing
  * a running Jenkins instance (same style as {@code CavissonRunTestExecutorStartResponseTest}).
  */
-public class AccessibilityScannerExecutorTest {
+class AccessibilityScannerExecutorTest {
 
     // ===================================================================================
     // Controller validation
     // ===================================================================================
 
     @Test
-    public void validControllerIsNormalized() throws Exception {
+    void validControllerIsNormalized() throws Exception {
         assertEquals("home/cavisson/work", AccessibilityScannerExecutor.validateController("/home/cavisson/work"));
         assertEquals("home/cavisson/work", AccessibilityScannerExecutor.validateController("/home/cavisson/work/"));
     }
 
     @Test
-    public void blankControllerIsRejected() {
+    void blankControllerIsRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateController(""));
         assertAbort(() -> AccessibilityScannerExecutor.validateController(null));
     }
@@ -36,7 +36,7 @@ public class AccessibilityScannerExecutorTest {
      * being silently accepted as equivalent).
      */
     @Test
-    public void missingLeadingSlashIsRejected() {
+    void missingLeadingSlashIsRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateController("home/cavisson/work"));
     }
 
@@ -47,20 +47,20 @@ public class AccessibilityScannerExecutorTest {
      * reports actually landed.
      */
     @Test
-    public void otherPathsAreRejectedEvenIfSyntacticallySafe() {
+    void otherPathsAreRejectedEvenIfSyntacticallySafe() {
         assertAbort(() -> AccessibilityScannerExecutor.validateController("/cavisson/work"));
         assertAbort(() -> AccessibilityScannerExecutor.validateController("/work/"));
         assertAbort(() -> AccessibilityScannerExecutor.validateController("/teams/qa"));
     }
 
     @Test
-    public void pathTraversalInControllerIsRejected() {
+    void pathTraversalInControllerIsRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateController("../../etc/passwd"));
         assertAbort(() -> AccessibilityScannerExecutor.validateController("work/../../secrets"));
     }
 
     @Test
-    public void unsafeCharactersInControllerAreRejected() {
+    void unsafeCharactersInControllerAreRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateController("work; rm -rf /"));
         assertAbort(() -> AccessibilityScannerExecutor.validateController("work?x=1"));
         assertAbort(() -> AccessibilityScannerExecutor.validateController("work\nSECOND-LINE"));
@@ -71,33 +71,33 @@ public class AccessibilityScannerExecutorTest {
     // ===================================================================================
 
     @Test
-    public void validHttpAndHttpsUrlsAreAccepted() throws Exception {
+    void validHttpAndHttpsUrlsAreAccepted() throws Exception {
         assertEquals("https://example.com", AccessibilityScannerExecutor.validateApplicationUrl("https://example.com"));
         assertEquals("http://10.10.30.23:4444/UnifiedDashboard/",
                 AccessibilityScannerExecutor.validateApplicationUrl("http://10.10.30.23:4444/UnifiedDashboard/"));
     }
 
     @Test
-    public void internalHttpsUrlIsAccepted() throws Exception {
+    void internalHttpsUrlIsAccepted() throws Exception {
         assertEquals("https://10.10.30.23:4444/UnifiedDashboard/index.html",
                 AccessibilityScannerExecutor.validateApplicationUrl("https://10.10.30.23:4444/UnifiedDashboard/index.html"));
     }
 
     @Test
-    public void blankApplicationUrlIsRejected() {
+    void blankApplicationUrlIsRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateApplicationUrl(""));
         assertAbort(() -> AccessibilityScannerExecutor.validateApplicationUrl(null));
     }
 
     @Test
-    public void nonHttpSchemeIsRejected() {
+    void nonHttpSchemeIsRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateApplicationUrl("ftp://example.com"));
         assertAbort(() -> AccessibilityScannerExecutor.validateApplicationUrl("javascript:alert(1)"));
         assertAbort(() -> AccessibilityScannerExecutor.validateApplicationUrl("file:///etc/passwd"));
     }
 
     @Test
-    public void malformedUrlIsRejected() {
+    void malformedUrlIsRejected() {
         assertAbort(() -> AccessibilityScannerExecutor.validateApplicationUrl("not a url"));
     }
 
@@ -106,7 +106,7 @@ public class AccessibilityScannerExecutorTest {
     // ===================================================================================
 
     @Test
-    public void highestSeverityPicksCriticalOverLowerImpacts() {
+    void highestSeverityPicksCriticalOverLowerImpacts() {
         JSONObject axeJson = new JSONObject(
                 "{\"violations\":[{\"impact\":\"minor\"},{\"impact\":\"critical\"},{\"impact\":\"serious\"}]}");
 
@@ -114,19 +114,19 @@ public class AccessibilityScannerExecutorTest {
     }
 
     @Test
-    public void highestSeverityIsNoneWhenNoViolations() {
+    void highestSeverityIsNoneWhenNoViolations() {
         JSONObject axeJson = new JSONObject("{\"violations\":[]}");
         assertEquals("NONE", AccessibilityScannerExecutor.highestSeverity(axeJson));
     }
 
     @Test
-    public void highestSeverityIsNoneWhenViolationsKeyMissing() {
+    void highestSeverityIsNoneWhenViolationsKeyMissing() {
         JSONObject axeJson = new JSONObject("{}");
         assertEquals("NONE", AccessibilityScannerExecutor.highestSeverity(axeJson));
     }
 
     @Test
-    public void highestSeverityDefaultsUnknownImpactToMinor() {
+    void highestSeverityDefaultsUnknownImpactToMinor() {
         JSONObject axeJson = new JSONObject("{\"violations\":[{}]}");
         assertEquals("MINOR", AccessibilityScannerExecutor.highestSeverity(axeJson));
     }

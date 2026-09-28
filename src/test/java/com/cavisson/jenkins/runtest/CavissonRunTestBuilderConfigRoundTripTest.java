@@ -1,10 +1,11 @@
 package com.cavisson.jenkins.runtest;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Reproduces the real "Save" flow on a Freestyle job's configure page (the exact path that
@@ -14,13 +15,18 @@ import static org.junit.Assert.assertEquals;
  * instance from what was submitted - so this test fails the same way a real "Save" click would
  * if the Jelly/Descriptor binding is broken again.
  */
-public class CavissonRunTestBuilderConfigRoundTripTest {
+@WithJenkins
+class CavissonRunTestBuilderConfigRoundTripTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void directModeConfigSurvivesRoundTrip() throws Exception {
+    void directModeConfigSurvivesRoundTrip() throws Exception {
         CavissonRunTestBuilder before = new CavissonRunTestBuilder();
         before.setConnectionMode("direct");
         before.setBaseUrl("https://10.10.70.105");
@@ -46,7 +52,7 @@ public class CavissonRunTestBuilderConfigRoundTripTest {
     }
 
     @Test
-    public void loadTestModeConfigSurvivesRoundTrip() throws Exception {
+    void loadTestModeConfigSurvivesRoundTrip() throws Exception {
         CavissonRunTestBuilder before = new CavissonRunTestBuilder();
         before.setConnectionMode("serviceConnection");
         before.setCavServiceConnectionId("my-service-connection");

@@ -1,11 +1,11 @@
 package com.cavisson.jenkins.runtest;
 
 import org.json.JSONObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Locks in parsing of the real DashboardServer /startTest response shape observed in production:
@@ -15,7 +15,7 @@ import static org.junit.Assert.assertTrue;
  * was mistakenly used to decide start success, causing every real test run to fail immediately
  * instead of proceeding to the polling loop.
  */
-public class CavissonRunTestExecutorStartResponseTest {
+class CavissonRunTestExecutorStartResponseTest {
 
     private static final String REAL_STARTTEST_RESPONSE =
             "{\"effectiveTestMode\":\"T\",\"success\":true,\"testType\":\"functional\",\"run\":1059,"
@@ -23,7 +23,7 @@ public class CavissonRunTestExecutorStartResponseTest {
                     + "\"workProfile\":\"system\",\"cleanupRequired\":false,\"status\":\"PASS\"}";
 
     @Test
-    public void realResponseWithSuccessTrueAndMisleadingStatusIsTreatedAsSuccessful() {
+    void realResponseWithSuccessTrueAndMisleadingStatusIsTreatedAsSuccessful() {
         JSONObject json = new JSONObject(REAL_STARTTEST_RESPONSE);
 
         assertTrue(CavissonRunTestExecutor.isStartSuccessful(json));
@@ -31,7 +31,7 @@ public class CavissonRunTestExecutorStartResponseTest {
     }
 
     @Test
-    public void successFalseIsTreatedAsFailure() {
+    void successFalseIsTreatedAsFailure() {
         JSONObject json = new JSONObject("{\"success\":false,\"run\":0,\"error\":\"scenario not found\"}");
 
         assertFalse(CavissonRunTestExecutor.isStartSuccessful(json));
@@ -39,42 +39,42 @@ public class CavissonRunTestExecutorStartResponseTest {
     }
 
     @Test
-    public void missingSuccessFieldFallsBackToStatusEqualsSuccess() {
+    void missingSuccessFieldFallsBackToStatusEqualsSuccess() {
         JSONObject json = new JSONObject("{\"status\":\"success\",\"run\":42}");
 
         assertTrue(CavissonRunTestExecutor.isStartSuccessful(json));
     }
 
     @Test
-    public void errorDetailPrefersErrorFieldOverMessage() {
+    void errorDetailPrefersErrorFieldOverMessage() {
         JSONObject json = new JSONObject("{\"error\":\"bad request\",\"message\":\"fallback message\"}");
 
         assertEquals("bad request", CavissonRunTestExecutor.startErrorDetail(json));
     }
 
     @Test
-    public void errorDetailFallsBackToMessageWhenErrorIsEmpty() {
+    void errorDetailFallsBackToMessageWhenErrorIsEmpty() {
         JSONObject json = new JSONObject("{\"error\":\"\",\"message\":\"fallback message\"}");
 
         assertEquals("fallback message", CavissonRunTestExecutor.startErrorDetail(json));
     }
 
     @Test
-    public void effectiveTestModeOverridesRequestedModeWhenPresent() {
+    void effectiveTestModeOverridesRequestedModeWhenPresent() {
         JSONObject json = new JSONObject(REAL_STARTTEST_RESPONSE);
 
         assertEquals("T", CavissonRunTestExecutor.resolveEffectiveMode(json, "N"));
     }
 
     @Test
-    public void effectiveTestModeFallsBackToRequestedModeWhenAbsent() {
+    void effectiveTestModeFallsBackToRequestedModeWhenAbsent() {
         JSONObject json = new JSONObject("{\"success\":true,\"run\":1}");
 
         assertEquals("N", CavissonRunTestExecutor.resolveEffectiveMode(json, "N"));
     }
 
     @Test
-    public void failAndFailedAreBothTerminalStatuses() {
+    void failAndFailedAreBothTerminalStatuses() {
         assertTrue(CavissonRunTestExecutor.isTerminalStatus("pass"));
         assertTrue(CavissonRunTestExecutor.isTerminalStatus("fail"));
         assertTrue(CavissonRunTestExecutor.isTerminalStatus("failed"));

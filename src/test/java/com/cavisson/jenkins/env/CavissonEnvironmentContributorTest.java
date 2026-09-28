@@ -4,14 +4,15 @@ import hudson.EnvVars;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.TaskListener;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies the actual end-to-end wiring: a value published via
@@ -19,13 +20,18 @@ import static org.junit.Assert.assertEquals;
  * the same call every later build/Pipeline step uses to read environment variables. This is the
  * mechanism both CavissonRunTest (CAV_TSR_*) and CreateTestSuite (CAV_NEW_TESTSUITE_NAME) rely on.
  */
-public class CavissonEnvironmentContributorTest {
+@WithJenkins
+class CavissonEnvironmentContributorTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
+
+    @BeforeEach
+    void setUp(JenkinsRule rule) {
+        j = rule;
+    }
 
     @Test
-    public void publishedVarsAreExposedThroughRunGetEnvironment() throws Exception {
+    void publishedVarsAreExposedThroughRunGetEnvironment() throws Exception {
         FreeStyleProject project = j.createFreeStyleProject();
         FreeStyleBuild build = j.buildAndAssertSuccess(project);
 
@@ -42,7 +48,7 @@ public class CavissonEnvironmentContributorTest {
     }
 
     @Test
-    public void multiplePublishCallsOnTheSameRunAreAllMerged() throws Exception {
+    void multiplePublishCallsOnTheSameRunAreAllMerged() throws Exception {
         FreeStyleProject project = j.createFreeStyleProject();
         FreeStyleBuild build = j.buildAndAssertSuccess(project);
 
