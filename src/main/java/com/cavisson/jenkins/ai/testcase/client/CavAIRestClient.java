@@ -1,6 +1,7 @@
 package com.cavisson.jenkins.ai.testcase.client;
 
 import com.cavisson.jenkins.ai.testcase.exception.CavAIApiException;
+import com.cavisson.jenkins.config.CavissonGlobalConfiguration;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -75,7 +76,7 @@ public class CavAIRestClient {
     private static final int CONNECT_TIMEOUT_MS = 30_000;
     private static final int SOCKET_TIMEOUT_MS  = 120_000;
 
-    // -- Trust-all SSL context (equivalent to prior TrustAllStrategy / NoopHostnameVerifier) --
+    // -- Trust-all SSL context, applied only when enabled in CavissonGlobalConfiguration --
 
     private static final HostnameVerifier TRUST_ALL_HOSTNAME_VERIFIER = new HostnameVerifier() {
         @Override
@@ -102,7 +103,8 @@ public class CavAIRestClient {
 
     private void applyTrustAll(HttpURLConnection connection)
             throws NoSuchAlgorithmException, KeyManagementException {
-        if (connection instanceof HttpsURLConnection) {
+        if (CavissonGlobalConfiguration.insecureSslAllowed()
+                && connection instanceof HttpsURLConnection) {
             HttpsURLConnection https = (HttpsURLConnection) connection;
             https.setSSLSocketFactory(buildTrustAllSslContext().getSocketFactory());
             https.setHostnameVerifier(TRUST_ALL_HOSTNAME_VERIFIER);

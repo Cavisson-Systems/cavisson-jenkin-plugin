@@ -12,6 +12,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Acquires the PRD file from a browser upload or workspace file.
@@ -76,6 +78,8 @@ import java.lang.reflect.Field;
  * the old approach of copying files manually into the workspace.
  */
 public class LocalFileSource implements PrdSource {
+
+    private static final Logger LOGGER = Logger.getLogger(LocalFileSource.class.getName());
 
     private final String prdParameterName;
     private final String prdFileFallback;
@@ -230,8 +234,9 @@ public class LocalFileSource implements PrdSource {
                     return readAllBytes(is);
                 }
             }
-        } catch (Exception e) {
+        } catch (ReflectiveOperationException | IOException | RuntimeException e) {
             // Reflection failed - try the next approach
+            LOGGER.log(Level.FINE, "Could not read file parameter via FileItem", e);
         }
 
         // Try via the FileParameterValue.getFile() method if it exists
@@ -245,8 +250,9 @@ public class LocalFileSource implements PrdSource {
                     return java.nio.file.Files.readAllBytes(path);
                 }
             }
-        } catch (Exception e) {
+        } catch (ReflectiveOperationException | IOException | RuntimeException e) {
             // Not available in this Jenkins version
+            LOGGER.log(Level.FINE, "Could not read file parameter via getFile()", e);
         }
 
         return null;
@@ -268,12 +274,8 @@ public class LocalFileSource implements PrdSource {
      */
     private String getOriginalFileName(FileParameterValue fpv) {
         // Public API (available in Jenkins 2.332+)
-        try {
-            String name = fpv.getOriginalFileName();
-            if (name != null && !name.trim().isEmpty()) return name;
-        } catch (Exception e) {
-            // Not available
-        }
+        String name = fpv.getOriginalFileName();
+        if (name != null && !name.trim().isEmpty()) return name;
 
         // Reflection fallback - field is named "originalFileName" or "filename"
         for (String fieldName : new String[]{"originalFileName", "filename", "name"}) {
@@ -286,8 +288,9 @@ public class LocalFileSource implements PrdSource {
                         return (String) val;
                     }
                 }
-            } catch (Exception e) {
+            } catch (IllegalAccessException | RuntimeException e) {
                 // Try next field
+                LOGGER.log(Level.FINE, "Could not read FileParameterValue." + fieldName, e);
             }
         }
 

@@ -78,7 +78,7 @@ final class SecurityReportPublisher {
 
         int exitCode = ScriptRunner.runPythonConverter(launcher, listener, workspace, env, jsonPath, htmlPath);
 
-        FilePath htmlFile = trivyJsonFile.getParent().child(trivyJsonFile.getName().replaceAll("(?i)\\.json$", ".html"));
+        FilePath htmlFile = trivyJsonFile.sibling(trivyJsonFile.getName().replaceAll("(?i)\\.json$", ".html"));
 
         if (exitCode != 0 || !htmlFile.exists()) {
             throw new IOException("Trivy HTML report was not generated: " + htmlPath);

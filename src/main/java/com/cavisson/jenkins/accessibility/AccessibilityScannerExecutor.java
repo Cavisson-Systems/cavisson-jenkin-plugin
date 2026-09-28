@@ -199,8 +199,9 @@ final class AccessibilityScannerExecutor {
         // to a fixed folder next to the job workspaces removes the ambiguity entirely: Freestyle
         // and Pipeline builds - and every job - share the exact same on-disk cache from here on,
         // so Chromium is downloaded at most once per agent regardless of which mode triggers it.
-        FilePath playwrightCacheDir = workspace.getParent() != null
-                ? workspace.getParent().child(".cavisson-playwright-cache")
+        FilePath workspaceParent = workspace.getParent();
+        FilePath playwrightCacheDir = workspaceParent != null
+                ? workspaceParent.child(".cavisson-playwright-cache")
                 : workspace.child(".cavisson-playwright-cache");
 
         Map<String, String> scanEnv = new LinkedHashMap<>();
@@ -537,7 +538,10 @@ final class AccessibilityScannerExecutor {
 
         for (String relativePath : SCANNER_FILES) {
             FilePath target = scriptsDir.child(relativePath);
-            target.getParent().mkdirs();
+            FilePath targetDir = target.getParent();
+            if (targetDir != null) {
+                targetDir.mkdirs();
+            }
 
             String resourcePath = SCRIPTS_RESOURCE_ROOT + "/" + relativePath;
             try (InputStream resourceStream = AccessibilityScannerExecutor.class.getResourceAsStream(resourcePath)) {
