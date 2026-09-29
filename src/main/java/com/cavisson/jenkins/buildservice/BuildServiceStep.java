@@ -89,6 +89,7 @@ public class BuildServiceStep extends Step {
             return new HashSet<>(Arrays.asList(FilePath.class, Launcher.class, TaskListener.class, EnvVars.class));
         }
 
+        @SuppressWarnings({"lgtm[jenkins/csrf]", "lgtm[jenkins/no-permission-check]"}) // side-effect-free form helper, exposes no data
         public hudson.util.FormValidation doCheckService(@QueryParameter String value) {
             if (value == null || value.trim().isEmpty()) {
                 return hudson.util.FormValidation.error("service is required.");

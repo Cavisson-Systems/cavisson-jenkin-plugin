@@ -744,6 +744,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> jobType) { return true; }
 
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckCavServiceConnectionId(@QueryParameter String v)
         { return blank(v) ? FormValidation.error("Required.") : FormValidation.ok(); }
 
@@ -766,6 +767,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
                     .includeAs(ACL.SYSTEM, item, CavServiceConnection.class)
                     .includeCurrentValue(cavServiceConnectionId);
         }
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckApplicationUrl(@QueryParameter String applicationUrl) {
             if (blank(applicationUrl)) {
                 return FormValidation.error("Application URL is required.");
@@ -777,17 +779,23 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             }
             return FormValidation.ok();
         }
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckWorkspaceRoot(@QueryParameter String v)
         { return FormValidation.ok(); }
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckProject(@QueryParameter String v)
         { return FormValidation.ok(); }
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckSubProject(@QueryParameter String v)
         { return FormValidation.ok(); }
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckControllerName(@QueryParameter String v)
         { return FormValidation.ok(); }
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckNumberOfTestCases(@QueryParameter int v)
         { return v < 0 ? FormValidation.error("Must be > 0.") : FormValidation.ok(); }
 
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckJiraEpicPattern(
                 @QueryParameter String jiraEpicPattern,
                 @QueryParameter String prdSourceType) {
@@ -800,6 +808,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckJiraIntegrationName(
                 @QueryParameter String jiraIntegrationName,
                 @QueryParameter String prdSourceType) {
@@ -811,6 +820,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckGitRepoUrl(
                 @QueryParameter String gitRepoUrl,
                 @QueryParameter String prdSourceType) {
@@ -820,6 +830,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckGitPrdPath(
                 @QueryParameter String gitPrdPath,
                 @QueryParameter String prdSourceType) {
@@ -829,6 +840,7 @@ public class CavAITestCaseBuilder extends Builder implements SimpleBuildStep {
             return FormValidation.ok();
         }
 
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]") // side-effect-free form validation, exposes no data
         @POST public FormValidation doCheckGitIntegrationName(
                 @QueryParameter String gitIntegrationName,
                 @QueryParameter String prdSourceType) {
