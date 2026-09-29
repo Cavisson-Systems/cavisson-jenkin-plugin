@@ -21,12 +21,12 @@
 
   <!-- Execution Source -->
   <f:section title="Execution Source">
-    <div id="cavAiExecSource">
+    <div class="cav-ai-exec-source">
 
     <f:entry title="Execution Source"
              field="prdSourceType"
              description="Where the PRD/epic content comes from. Local File Upload: upload a file from the browser. Git Repository: clone a repository and locate the PRD inside it. Epic Integration: fetch stories from a JIRA/Azure DevOps epic via the AI server.">
-      <f:select id="cavAiExecSourceType"/>
+      <f:select/>
     </f:entry>
 
     <!-- Local File Upload: source-specific fields only -->
@@ -76,28 +76,7 @@
 
     </div>
 
-    <script>
-      (function() {
-        var container = document.getElementById('cavAiExecSource');
-        var select = document.getElementById('cavAiExecSourceType');
-        if (!container || !select) { return; }
-        function hasClass(el, cls) {
-          return (' ' + el.className + ' ').indexOf(' ' + cls + ' ') &gt;= 0;
-        }
-        function update() {
-          var value = (select.value || 'LOCAL').toLowerCase();
-          var groups = container.getElementsByTagName('div');
-          for (var i = 0; i &lt; groups.length; i++) {
-            var g = groups[i];
-            if (hasClass(g, 'exec-source-group')) {
-              g.style.display = hasClass(g, 'exec-source-' + value) ? '' : 'none';
-            }
-          }
-        }
-        select.onchange = update;
-        update();
-      })();
-    </script>
+    <st:adjunct includes="com.cavisson.jenkins.ai.testcase.builder.CavAITestCaseBuilder.execSource"/>
   </f:section>
 
   <!-- Common Section: exactly one copy, shared by every Execution Source -->

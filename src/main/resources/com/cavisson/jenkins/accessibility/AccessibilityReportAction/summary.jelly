@@ -20,9 +20,9 @@
   re-escaping an already-escaped string) - that must not appear here.
 -->
 <j:jelly xmlns:j="jelly:core">
-  <div style="padding: 6px 0;">
+  <p>
     <a href="${it.reportUrl}" target="_blank" rel="noopener noreferrer">
       📊 View Accessibility Report
     </a>
-  </div>
+  </p>
 </j:jelly>
